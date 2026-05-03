@@ -103,11 +103,12 @@ public class OpenAIService {
         formData.add("size", size);
         formData.add("quality", "high");
 
+        String imageParam = images.size() > 1 ? "image[]" : "image";
         for (MultipartFile image : images) {
             byte[] bytes = image.getBytes();
             final String filename = image.getOriginalFilename() != null
                     ? image.getOriginalFilename() : "image.png";
-            formData.add("image", new ByteArrayResource(bytes) {
+            formData.add(imageParam, new ByteArrayResource(bytes) {
                 @Override
                 public String getFilename() {
                     return filename;
