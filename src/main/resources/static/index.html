@@ -257,6 +257,22 @@ function renderChips() {
   updateMaskToggle();
 }
 
+// ─── Notifications ────────────────────────────────────────────────────────────
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function notifyImageReady() {
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    new Notification('AI Image Creator', {
+      body: 'Your image is ready!',
+      icon: '/favicon.ico'
+    });
+  }
+}
+
 // ─── Generate ─────────────────────────────────────────────────────────────────
 let pollingTimer = null;
 let startTime   = null;
@@ -266,6 +282,7 @@ async function startGeneration() {
   const prompt = document.getElementById('prompt').value.trim();
   if (!prompt) { alert('Please enter a prompt.'); return; }
 
+  requestNotificationPermission();
   setGeneratingUI(true);
   showStatus('pending', 'Submitting request…');
 
@@ -403,6 +420,7 @@ function showError(type, msg, label) {
 }
 
 function showResult(imageName) {
+  notifyImageReady();
   const area = document.getElementById('result-area');
   area.style.display = 'block';
   area.innerHTML = `<div class="status-box" style="background:#0d2418;border-color:#166534;color:#86efac;margin-bottom:.8rem">
