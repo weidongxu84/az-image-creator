@@ -401,10 +401,33 @@ async function loadImages() {
         <div class="card-footer">
           <button class="btn btn-secondary" onclick="openModal('${escAttr(img.name)}')">View</button>
           <a class="btn btn-primary" href="/api/images/${encodeURIComponent(img.name)}" download="${escAttr(img.name)}">⬇</a>
+          <button class="btn btn-danger" onclick="deleteImage('${escAttr(img.name)}', this)">🗑</button>
         </div>
       </div>`).join('');
   } catch (e) {
     grid.innerHTML = `<div class="empty-state" style="color:#f87171">Failed to load: ${escHtml(e.message)}</div>`;
+  }
+}
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+async function deleteImage(name, btn) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  btn.disabled = true;
+  try {
+    const res = await apiFetch('/api/images/' + encodeURIComponent(name), { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // Remove the card from the DOM
+    btn.closest('.image-card').remove();
+    const grid = document.getElementById('image-grid');
+    const remaining = grid.querySelectorAll('.image-card').length;
+    document.getElementById('browse-count').textContent =
+      remaining + ' image' + (remaining !== 1 ? 's' : '');
+    if (remaining === 0) {
+      grid.innerHTML = '<div class="empty-state">No images yet. Go generate one!</div>';
+    }
+  } catch (e) {
+    alert('Delete failed: ' + e.message);
+    btn.disabled = false;
   }
 }
 

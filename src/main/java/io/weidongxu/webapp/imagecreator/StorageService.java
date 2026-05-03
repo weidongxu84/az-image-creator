@@ -66,4 +66,8 @@ public class StorageService {
     public byte[] download(String blobName) {
         return containerClient.getBlobClient(blobName).downloadContent().toBytes();
     }
+
+    public void delete(String blobName) {
+        containerClient.getBlobClient(blobName).delete();
+    }
 }

@@ -73,6 +73,17 @@ public class ImageController {
         }
     }
 
+    @DeleteMapping("/images/{name}")
+    public ResponseEntity<Void> deleteImage(@PathVariable String name) {
+        try {
+            storageService.delete(name);
+            return ResponseEntity.noContent().build();
+        } catch (BlobStorageException e) {
+            log.warn("Image not found for delete: {}", name);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     /** Health ping, no auth required */
     @GetMapping("/")
     public ResponseEntity<Void> root() {
