@@ -115,7 +115,12 @@
   .modal-overlay.hidden { display: none; }
   .modal-box { background: #1a1d27; border: 1px solid #2d3148; border-radius: 12px; max-width: 90vw; max-height: 90vh; overflow: auto; padding: 1.2rem; display: flex; flex-direction: column; gap: .8rem; }
   .modal-box img { max-width: 100%; max-height: 75vh; border-radius: 8px; display: block; margin: 0 auto; }
-  .modal-footer { display: flex; gap: .6rem; justify-content: flex-end; }
+  /* Mask canvas */
+  .mask-section { margin-top: 1rem; }
+  .mask-canvas-wrap { position: relative; display: inline-block; cursor: crosshair; max-width: 100%; }
+  #mask-img-canvas { display: block; max-width: 700px; width: 100%; border-radius: 8px; border: 1px solid #2d3148; }
+  #mask-draw-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px; }
+  .mask-hint { font-size: .8rem; color: #64748b; margin-top: .4rem; }
 </style>
 </head>
 <body>
@@ -147,11 +152,31 @@
     <option value="3840x2160">3840 × 2160 (4K)</option>
   </select>
 
+  <label>Output format</label>
+  <select id="output-format">
+    <option value="jpeg" selected>JPEG (compressed, smaller file)</option>
+    <option value="png">PNG (lossless)</option>
+    <option value="webp">WebP (compressed)</option>
+  </select>
+
   <label>Reference images <span style="color:#64748b;font-size:.8rem">(optional — up to 8; triggers edit mode)</span></label>
   <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
     <input type="file" id="file-input" accept="image/*" multiple>
     <span>Click or drag images here</span>
     <div class="file-chips" id="file-chips"></div>
+  </div>
+
+  <div id="mask-toggle-wrap" style="margin-top:.6rem;display:none">
+    <button class="btn btn-secondary" id="mask-toggle-btn" onclick="toggleMask()">🖌 Draw mask</button>
+    <button class="btn btn-secondary" id="mask-clear-btn" onclick="clearMask()" style="display:none">🗑 Clear mask</button>
+  </div>
+
+  <div class="mask-section" id="mask-section" style="display:none">
+    <div class="mask-canvas-wrap" id="mask-canvas-wrap">
+      <canvas id="mask-img-canvas"></canvas>
+      <canvas id="mask-draw-canvas"></canvas>
+    </div>
+    <p class="mask-hint">Paint over areas you want to edit (shown in red). Unpainted areas are preserved.</p>
   </div>
 
   <div class="actions">
@@ -215,8 +240,10 @@ function addFiles(files) {
 }
 
 function removeFile(idx) {
+  const wasFirst = idx === 0;
   selectedFiles.splice(idx, 1);
   renderChips();
+  if (wasFirst) loadMaskImage();
 }
 
 function renderChips() {
@@ -224,6 +251,7 @@ function renderChips() {
   container.innerHTML = selectedFiles.map((f, i) =>
     `<span class="file-chip">${escHtml(f.name)}<button onclick="removeFile(${i})" title="Remove">×</button></span>`
   ).join('');
+  updateMaskToggle();
 }
 
 // ─── Generate ─────────────────────────────────────────────────────────────────
@@ -241,7 +269,10 @@ async function startGeneration() {
   const formData = new FormData();
   formData.append('prompt', prompt);
   formData.append('size', document.getElementById('size').value);
+  formData.append('outputFormat', document.getElementById('output-format').value);
   for (const f of selectedFiles) formData.append('images', f);
+  const maskBlob = exportMask();
+  if (maskBlob) formData.append('mask', maskBlob, 'mask.png');
 
   let jobId;
   try {
@@ -454,6 +485,161 @@ function closeModal(e) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal({ target: document.getElementById('modal') });
 });
+
+// ─── Mask drawing ─────────────────────────────────────────────────────────────
+let maskVisible = false;
+let hasPainted = false;
+let maskDrawing = false;
+let maskLastPos = null;
+
+function updateMaskToggle() {
+  const wrap = document.getElementById('mask-toggle-wrap');
+  wrap.style.display = selectedFiles.length > 0 ? 'flex' : 'none';
+  if (selectedFiles.length === 0) {
+    hideMask();
+  }
+}
+
+function toggleMask() {
+  if (maskVisible) {
+    hideMask();
+  } else {
+    maskVisible = true;
+    document.getElementById('mask-section').style.display = 'block';
+    document.getElementById('mask-toggle-btn').textContent = '✖ Hide mask';
+    document.getElementById('mask-clear-btn').style.display = 'inline-flex';
+    loadMaskImage();
+  }
+}
+
+function hideMask() {
+  maskVisible = false;
+  document.getElementById('mask-section').style.display = 'none';
+  const btn = document.getElementById('mask-toggle-btn');
+  if (btn) btn.textContent = '🖌 Draw mask';
+  const clrBtn = document.getElementById('mask-clear-btn');
+  if (clrBtn) clrBtn.style.display = 'none';
+}
+
+function loadMaskImage() {
+  if (!maskVisible || selectedFiles.length === 0) return;
+  const imgCanvas = document.getElementById('mask-img-canvas');
+  const drawCanvas = document.getElementById('mask-draw-canvas');
+  const imgCtx = imgCanvas.getContext('2d');
+  const drawCtx = drawCanvas.getContext('2d');
+
+  const img = new Image();
+  const url = URL.createObjectURL(selectedFiles[0]);
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    imgCanvas.width = img.naturalWidth;
+    imgCanvas.height = img.naturalHeight;
+    drawCanvas.width = img.naturalWidth;
+    drawCanvas.height = img.naturalHeight;
+    imgCtx.drawImage(img, 0, 0);
+    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+    hasPainted = false;
+    setupMaskEvents(drawCanvas);
+  };
+  img.src = url;
+}
+
+function setupMaskEvents(canvas) {
+  canvas.onmousedown = e => { maskDrawing = true; maskLastPos = canvasPos(canvas, e); paintAt(canvas, maskLastPos); };
+  canvas.onmousemove = e => {
+    if (!maskDrawing) return;
+    const pos = canvasPos(canvas, e);
+    paintLine(canvas, maskLastPos, pos);
+    maskLastPos = pos;
+  };
+  canvas.onmouseup = canvas.onmouseleave = () => { maskDrawing = false; maskLastPos = null; };
+
+  canvas.ontouchstart = e => {
+    e.preventDefault();
+    maskDrawing = true;
+    maskLastPos = canvasPos(canvas, e.touches[0]);
+    paintAt(canvas, maskLastPos);
+  };
+  canvas.ontouchmove = e => {
+    e.preventDefault();
+    if (!maskDrawing) return;
+    const pos = canvasPos(canvas, e.touches[0]);
+    paintLine(canvas, maskLastPos, pos);
+    maskLastPos = pos;
+  };
+  canvas.ontouchend = () => { maskDrawing = false; maskLastPos = null; };
+}
+
+function canvasPos(canvas, e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+}
+
+function paintAt(canvas, pos) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(220, 38, 38, 0.5)';
+  ctx.beginPath();
+  ctx.arc(pos.x, pos.y, 20 * (canvas.width / canvas.getBoundingClientRect().width), 0, Math.PI * 2);
+  ctx.fill();
+  hasPainted = true;
+}
+
+function paintLine(canvas, from, to) {
+  const ctx = canvas.getContext('2d');
+  const r = 20 * (canvas.width / canvas.getBoundingClientRect().width);
+  ctx.strokeStyle = 'rgba(220, 38, 38, 0.5)';
+  ctx.lineWidth = r * 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(to.x, to.y);
+  ctx.stroke();
+  hasPainted = true;
+}
+
+function clearMask() {
+  const canvas = document.getElementById('mask-draw-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  hasPainted = false;
+}
+
+function exportMask() {
+  if (!maskVisible || !hasPainted) return null;
+  const drawCanvas = document.getElementById('mask-draw-canvas');
+  const imgCanvas = document.getElementById('mask-img-canvas');
+  const out = document.createElement('canvas');
+  out.width = drawCanvas.width;
+  out.height = drawCanvas.height;
+  const ctx = out.getContext('2d');
+  // White background (areas to preserve)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  // Painted areas (to edit) → transparent
+  const drawData = drawCanvas.getContext('2d').getImageData(0, 0, drawCanvas.width, drawCanvas.height);
+  const outData = ctx.getImageData(0, 0, out.width, out.height);
+  for (let i = 0; i < drawData.data.length; i += 4) {
+    if (drawData.data[i + 3] > 10) { // painted pixel
+      outData.data[i] = 0;
+      outData.data[i + 1] = 0;
+      outData.data[i + 2] = 0;
+      outData.data[i + 3] = 0; // transparent
+    }
+  }
+  ctx.putImageData(outData, 0, 0);
+  return dataURLtoBlob(out.toDataURL('image/png'));
+}
+
+function dataURLtoBlob(dataURL) {
+  const [header, data] = dataURL.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const bytes = atob(data);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(tab) {

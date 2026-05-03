@@ -1,167 +1,140 @@
 package io.weidongxu.webapp.imagecreator;
 
-import com.azure.core.credential.AccessToken;
 import com.azure.core.credential.TokenRequestContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.MediaType;
+import com.openai.azure.AzureOpenAIServiceVersion;
+import com.openai.client.OpenAIClient;
+import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.credential.BearerTokenCredential;
+import com.openai.errors.OpenAIServiceException;
+import com.openai.models.images.ImageEditParams;
+import com.openai.models.images.ImageGenerateParams;
+import com.openai.models.images.ImagesResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class OpenAIService {
 
     private static final String API_VERSION = "2025-04-01-preview";
+    private static final long OUTPUT_COMPRESSION = 90L;
 
-    private final AppConfig config;
-    private final RestClient restClient;
+    private final String deployment;
+    private final OpenAIClient client;
     private final ObjectMapper objectMapper;
-    private final TokenRequestContext tokenRequestContext;
 
     public OpenAIService(AppConfig config, ObjectMapper objectMapper) {
-        this.config = config;
+        this.deployment = config.getOpenAIDeployment();
         this.objectMapper = objectMapper;
-        this.tokenRequestContext = new TokenRequestContext()
-                .addScopes("https://cognitiveservices.azure.com/.default");
 
-        HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(30))
-                .build();
-        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(httpClient);
-        factory.setReadTimeout(Duration.ofMinutes(10));
+        var builder = OpenAIOkHttpClient.builder()
+                .baseUrl(config.getOpenAIEndpoint())
+                .azureServiceVersion(AzureOpenAIServiceVersion.fromString(API_VERSION));
 
-        this.restClient = RestClient.builder()
-                .baseUrl(config.getOpenAIEndpoint().replaceAll("/$", ""))
-                .requestFactory(factory)
-                .build();
-    }
-
-    private void setAuthHeaders(HttpHeaders headers) {
         String apiKey = config.getOpenAIApiKey();
         if (apiKey != null && !apiKey.isBlank()) {
-            headers.set("Api-Key", apiKey);
+            builder.apiKey(apiKey);
         } else {
-            AccessToken token = config.getCredential()
-                    .getToken(tokenRequestContext)
-                    .block();
-            headers.setBearerAuth(token.getToken());
-        }
-    }
-
-    public byte[] generateImage(String prompt, String size) {
-        String url = "/openai/deployments/" + config.getOpenAIDeployment()
-                + "/images/generations?api-version=" + API_VERSION;
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("prompt", prompt);
-        body.put("n", 1);
-        body.put("size", size);
-        body.put("quality", "high");
-        body.put("output_format", "png");
-
-        String response = restClient.post()
-                .uri(url)
-                .headers(this::setAuthHeaders)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .onStatus(HttpStatusCode::isError, (req, resp) -> {
-                    byte[] bytes = resp.getBody().readAllBytes();
-                    String errorBody = new String(bytes, StandardCharsets.UTF_8);
-                    throw new OpenAIException(resp.getStatusCode().value(),
-                            parseErrorMessage(errorBody, resp.getStatusCode().value()));
-                })
-                .body(String.class);
-
-        return parseImageData(response);
-    }
-
-    public byte[] editImage(String prompt, String size, List<MultipartFile> images) throws IOException {
-        String url = "/openai/deployments/" + config.getOpenAIDeployment()
-                + "/images/edits?api-version=" + API_VERSION;
-
-        MultiValueMap<String, Object> formData = new LinkedMultiValueMap<>();
-        formData.add("prompt", prompt);
-        formData.add("n", "1");
-        formData.add("size", size);
-        formData.add("quality", "high");
-
-        String imageParam = images.size() > 1 ? "image[]" : "image";
-        for (MultipartFile image : images) {
-            byte[] bytes = image.getBytes();
-            final String filename = image.getOriginalFilename() != null
-                    ? image.getOriginalFilename() : "image.png";
-            formData.add(imageParam, new ByteArrayResource(bytes) {
-                @Override
-                public String getFilename() {
-                    return filename;
-                }
-            });
+            TokenRequestContext ctx = new TokenRequestContext()
+                    .addScopes("https://cognitiveservices.azure.com/.default");
+            builder.apiKey("none")
+                    .credential(BearerTokenCredential.create(
+                            () -> config.getCredential().getToken(ctx).block().getToken()));
         }
 
-        String response = restClient.post()
-                .uri(url)
-                .headers(this::setAuthHeaders)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(formData)
-                .retrieve()
-                .onStatus(HttpStatusCode::isError, (req, resp) -> {
-                    byte[] bytes = resp.getBody().readAllBytes();
-                    String errorBody = new String(bytes, StandardCharsets.UTF_8);
-                    throw new OpenAIException(resp.getStatusCode().value(),
-                            parseErrorMessage(errorBody, resp.getStatusCode().value()));
-                })
-                .body(String.class);
-
-        return parseImageData(response);
+        this.client = builder.build();
     }
 
-    private byte[] parseImageData(String jsonResponse) {
+    public byte[] generateImage(String prompt, String size, String outputFormat) {
+        var params = ImageGenerateParams.builder()
+                .prompt(prompt)
+                .model(deployment)
+                .n(1L)
+                .size(ImageGenerateParams.Size.of(size))
+                .quality(ImageGenerateParams.Quality.HIGH)
+                .outputFormat(ImageGenerateParams.OutputFormat.of(outputFormat));
+
+        if (isCompressedFormat(outputFormat)) {
+            params.outputCompression(OUTPUT_COMPRESSION);
+        }
+
         try {
-            JsonNode root = objectMapper.readTree(jsonResponse);
-            JsonNode item = root.path("data").get(0);
-
-            String b64Json = item.path("b64_json").asText(null);
-            if (b64Json != null && !b64Json.isEmpty()) {
-                return Base64.getDecoder().decode(b64Json);
-            }
-
-            // Fallback: download from SAS URL
-            String imageUrl = item.path("url").asText(null);
-            if (imageUrl != null && !imageUrl.isEmpty()) {
-                return downloadFromUrl(imageUrl);
-            }
-
-            throw new RuntimeException("No image data in OpenAI response");
-        } catch (OpenAIException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse OpenAI response: " + e.getMessage(), e);
+            return extractImageData(client.images().generate(params.build()));
+        } catch (OpenAIServiceException e) {
+            throw new OpenAIException(e.statusCode(),
+                    parseErrorMessage(e.body().toString(), e.statusCode()));
         }
     }
 
-    private byte[] downloadFromUrl(String url) throws IOException {
-        try (var in = new URI(url).toURL().openStream()) {
+    public byte[] editImage(String prompt, String size, List<MultipartFile> images,
+                            MultipartFile mask, String outputFormat) throws IOException {
+        List<InputStream> imageStreams = new ArrayList<>();
+        for (MultipartFile image : images) {
+            imageStreams.add(new ByteArrayInputStream(image.getBytes()));
+        }
+
+        var params = ImageEditParams.builder()
+                .prompt(prompt)
+                .model(deployment)
+                .n(1L)
+                .size(ImageEditParams.Size.of(size))
+                .quality(ImageEditParams.Quality.HIGH)
+                .imageOfInputStreams(imageStreams)
+                .outputFormat(ImageEditParams.OutputFormat.of(outputFormat));
+
+        if (isCompressedFormat(outputFormat)) {
+            params.outputCompression(OUTPUT_COMPRESSION);
+        }
+
+        if (mask != null && !mask.isEmpty()) {
+            params.mask(new ByteArrayInputStream(mask.getBytes()));
+        }
+
+        try {
+            return extractImageData(client.images().edit(params.build()));
+        } catch (OpenAIServiceException e) {
+            throw new OpenAIException(e.statusCode(),
+                    parseErrorMessage(e.body().toString(), e.statusCode()));
+        }
+    }
+
+    private byte[] extractImageData(ImagesResponse response) {
+        com.openai.models.images.Image image = response.data()
+                .orElseThrow(() -> new RuntimeException("No data in OpenAI response"))
+                .get(0);
+
+        Optional<String> b64 = image.b64Json();
+        if (b64.isPresent() && !b64.get().isEmpty()) {
+            return Base64.getDecoder().decode(b64.get());
+        }
+
+        Optional<String> url = image.url();
+        if (url.isPresent() && !url.get().isEmpty()) {
+            return downloadFromUrl(url.get());
+        }
+
+        throw new RuntimeException("No image data in OpenAI response");
+    }
+
+    private boolean isCompressedFormat(String format) {
+        return "jpeg".equalsIgnoreCase(format) || "webp".equalsIgnoreCase(format);
+    }
+
+    private byte[] downloadFromUrl(String url) {
+        try (InputStream in = new URI(url).toURL().openStream()) {
             return in.readAllBytes();
         } catch (Exception e) {
-            throw new IOException("Failed to download image from URL", e);
+            throw new RuntimeException("Failed to download image from URL", e);
         }
     }
 

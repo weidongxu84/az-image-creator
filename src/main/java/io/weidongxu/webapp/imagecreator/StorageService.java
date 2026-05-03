@@ -3,6 +3,7 @@ package io.weidongxu.webapp.imagecreator;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobListDetails;
 import com.azure.storage.blob.models.ListBlobsOptions;
@@ -30,18 +31,31 @@ public class StorageService {
         this.containerClient = serviceClient.getBlobContainerClient(config.getStorageContainerName());
     }
 
-    public String upload(byte[] imageData, String prompt) {
+    public String upload(byte[] imageData, String prompt, String outputFormat) {
+        String ext = switch (outputFormat == null ? "png" : outputFormat.toLowerCase()) {
+            case "jpeg" -> ".jpg";
+            case "webp" -> ".webp";
+            default -> ".png";
+        };
+        String contentType = switch (ext) {
+            case ".jpg" -> "image/jpeg";
+            case ".webp" -> "image/webp";
+            default -> "image/png";
+        };
+
         String blobName = "image_"
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
-                + ".png";
+                + ext;
 
-        containerClient.getBlobClient(blobName).upload(BinaryData.fromBytes(imageData), true);
+        var blobClient = containerClient.getBlobClient(blobName);
+        blobClient.upload(BinaryData.fromBytes(imageData), true);
+        blobClient.setHttpHeaders(new BlobHttpHeaders().setContentType(contentType));
 
         if (prompt != null && !prompt.isBlank()) {
             Map<String, String> metadata = new HashMap<>();
             String truncated = prompt.length() > 500 ? prompt.substring(0, 500) : prompt;
             metadata.put("prompt", truncated.replace("\r", " ").replace("\n", " "));
-            containerClient.getBlobClient(blobName).setMetadata(metadata);
+            blobClient.setMetadata(metadata);
         }
         return blobName;
     }

@@ -31,14 +31,19 @@ public class ImageController {
     public ResponseEntity<Map<String, String>> generate(
             @RequestParam("prompt") String prompt,
             @RequestParam(name = "size", required = false, defaultValue = "2048x2048") String size,
-            @RequestParam(name = "images", required = false) List<MultipartFile> images) {
+            @RequestParam(name = "outputFormat", required = false, defaultValue = "jpeg") String outputFormat,
+            @RequestParam(name = "images", required = false) List<MultipartFile> images,
+            @RequestParam(name = "mask", required = false) MultipartFile mask) {
 
         List<MultipartFile> validImages = images == null ? null
                 : images.stream().filter(f -> f != null && !f.isEmpty()).collect(Collectors.toList());
 
+        MultipartFile validMask = (mask != null && !mask.isEmpty()) ? mask : null;
+
         String jobId = jobStore.createJob();
         imageGenerationService.generateImage(jobId, prompt, size,
-                (validImages != null && validImages.isEmpty()) ? null : validImages);
+                (validImages != null && validImages.isEmpty()) ? null : validImages,
+                validMask, outputFormat);
 
         log.info("Started job {} for prompt: {}", jobId, prompt.length() > 80
                 ? prompt.substring(0, 80) + "…" : prompt);
@@ -63,8 +68,16 @@ public class ImageController {
     public ResponseEntity<byte[]> downloadImage(@PathVariable String name) {
         try {
             byte[] data = storageService.download(name);
+            MediaType contentType;
+            if (name.endsWith(".jpg") || name.endsWith(".jpeg")) {
+                contentType = MediaType.IMAGE_JPEG;
+            } else if (name.endsWith(".webp")) {
+                contentType = MediaType.parseMediaType("image/webp");
+            } else {
+                contentType = MediaType.IMAGE_PNG;
+            }
             return ResponseEntity.ok()
-                    .contentType(MediaType.IMAGE_PNG)
+                    .contentType(contentType)
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + name + "\"")
                     .body(data);
         } catch (BlobStorageException e) {

@@ -22,18 +22,19 @@ public class ImageGenerationService {
     private JobStore jobStore;
 
     @Async
-    public void generateImage(String jobId, String prompt, String size, List<MultipartFile> images) {
+    public void generateImage(String jobId, String prompt, String size,
+                              List<MultipartFile> images, MultipartFile mask, String outputFormat) {
         jobStore.setRunning(jobId);
         try {
             byte[] imageData;
             if (images != null && !images.isEmpty()) {
-                log.info("Job {}: editing {} image(s), size={}", jobId, images.size(), size);
-                imageData = openAIService.editImage(prompt, size, images);
+                log.info("Job {}: editing {} image(s), size={}, format={}", jobId, images.size(), size, outputFormat);
+                imageData = openAIService.editImage(prompt, size, images, mask, outputFormat);
             } else {
-                log.info("Job {}: generating new image, size={}", jobId, size);
-                imageData = openAIService.generateImage(prompt, size);
+                log.info("Job {}: generating new image, size={}, format={}", jobId, size, outputFormat);
+                imageData = openAIService.generateImage(prompt, size, outputFormat);
             }
-            String blobName = storageService.upload(imageData, prompt);
+            String blobName = storageService.upload(imageData, prompt, outputFormat);
             log.info("Job {}: completed, saved as {}", jobId, blobName);
             jobStore.setCompleted(jobId, blobName);
 
