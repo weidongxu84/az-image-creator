@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Image Creator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+  header { padding: 1.2rem 2rem; background: #1a1d27; border-bottom: 1px solid #2d3148; display: flex; align-items: center; gap: 1rem; }
+  header h1 { font-size: 1.3rem; font-weight: 600; color: #c8b5f8; }
+
+  .tabs { display: flex; padding: 0 2rem; background: #1a1d27; border-bottom: 1px solid #2d3148; }
+  .tab-btn { padding: .75rem 1.5rem; cursor: pointer; border: none; background: none; color: #94a3b8; font-size: .95rem; border-bottom: 2px solid transparent; transition: all .2s; }
+  .tab-btn.active { color: #c8b5f8; border-bottom-color: #c8b5f8; }
+  .tab-btn:hover:not(.active) { color: #cbd5e1; }
+
+  .tab-panel { display: none; padding: 2rem; max-width: 900px; margin: 0 auto; }
+  .tab-panel.active { display: block; }
+
+  label { display: block; font-size: .85rem; color: #94a3b8; margin-bottom: .4rem; margin-top: 1.2rem; }
+  label:first-child { margin-top: 0; }
+
+  textarea, select, input[type=text] {
+    width: 100%; padding: .65rem .85rem; background: #1e2130; border: 1px solid #2d3148;
+    border-radius: 8px; color: #e2e8f0; font-size: .95rem; outline: none; transition: border-color .2s;
+  }
+  textarea:focus, select:focus { border-color: #7c6ad8; }
+  textarea { resize: vertical; min-height: 100px; }
+  select option { background: #1e2130; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: .5rem; padding: .65rem 1.4rem;
+    border-radius: 8px; border: none; cursor: pointer; font-size: .9rem; font-weight: 500;
+    transition: opacity .2s;
+  }
+  .btn:hover:not(:disabled) { opacity: .85; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-primary { background: #6d54c7; color: #fff; }
+  .btn-secondary { background: #2d3148; color: #cbd5e1; }
+  .btn-danger { background: #7c2d2d; color: #fecaca; }
+
+  /* Drop zone */
+  .drop-zone {
+    border: 2px dashed #2d3148; border-radius: 10px; padding: 1.5rem; text-align: center;
+    cursor: pointer; transition: border-color .2s, background .2s; color: #64748b;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #7c6ad8; background: #1e2130; color: #94a3b8; }
+  .drop-zone input[type=file] { display: none; }
+  .file-chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+  .file-chip {
+    background: #252840; border: 1px solid #2d3148; border-radius: 20px;
+    padding: .2rem .7rem; font-size: .8rem; color: #94a3b8;
+    display: flex; align-items: center; gap: .4rem;
+  }
+  .file-chip button { background: none; border: none; color: #64748b; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
+  .file-chip button:hover { color: #f87171; }
+
+  .actions { margin-top: 1.4rem; display: flex; gap: .8rem; align-items: center; }
+
+  /* Status / progress area */
+  .status-area { margin-top: 1.5rem; }
+  .status-box {
+    padding: 1rem 1.2rem; border-radius: 8px; font-size: .9rem; line-height: 1.5;
+    display: flex; align-items: flex-start; gap: .7rem;
+  }
+  .status-pending { background: #1e2130; border: 1px solid #2d3148; color: #94a3b8; }
+  .status-running  { background: #1e2638; border: 1px solid #1d4270; color: #7dd3fc; }
+  .status-completed { display: none; }
+  .status-error-content { background: #2d2310; border: 1px solid #78490f; color: #fde68a; }
+  .status-error-ratelimit { background: #1e2638; border: 1px solid #1d4270; color: #93c5fd; }
+  .status-error-other { background: #2d1515; border: 1px solid #7c2d2d; color: #fca5a5; }
+
+  .spinner {
+    width: 1.1em; height: 1.1em; border: 2px solid transparent;
+    border-top-color: currentColor; border-radius: 50%; flex-shrink: 0;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .elapsed { font-size: .8rem; opacity: .7; margin-top: .2rem; }
+
+  /* Result image */
+  .result-image { margin-top: 1.5rem; }
+  .result-image img { max-width: 100%; border-radius: 10px; border: 1px solid #2d3148; display: block; }
+  .result-image .img-actions { margin-top: .8rem; display: flex; gap: .6rem; }
+
+  /* Browse tab */
+  .toolbar { display: flex; gap: .8rem; align-items: center; margin-bottom: 1.2rem; }
+  .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.2rem; }
+  .image-card {
+    background: #1a1d27; border: 1px solid #2d3148; border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .image-card .thumb {
+    width: 100%; aspect-ratio: 1; object-fit: cover; cursor: pointer; transition: opacity .15s;
+  }
+  .image-card .thumb:hover { opacity: .88; }
+  .image-card .card-body { padding: .75rem; flex: 1; display: flex; flex-direction: column; gap: .3rem; }
+  .card-name { font-size: .78rem; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-prompt { font-size: .83rem; color: #94a3b8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; flex: 1; }
+  .card-footer { display: flex; gap: .4rem; padding: .6rem .75rem; border-top: 1px solid #2d3148; }
+  .card-footer .btn { padding: .35rem .8rem; font-size: .8rem; flex: 1; justify-content: center; }
+
+  /* Empty / loading state */
+  .empty-state { text-align: center; color: #64748b; padding: 3rem; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 1000;
+    display: flex; align-items: center; justify-content: center; padding: 1rem;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-box { background: #1a1d27; border: 1px solid #2d3148; border-radius: 12px; max-width: 90vw; max-height: 90vh; overflow: auto; padding: 1.2rem; display: flex; flex-direction: column; gap: .8rem; }
+  .modal-box img { max-width: 100%; max-height: 75vh; border-radius: 8px; display: block; margin: 0 auto; }
+  .modal-footer { display: flex; gap: .6rem; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.6rem">🎨</span>
+  <h1>AI Image Creator</h1>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('generate')">✨ Generate</button>
+  <button class="tab-btn" onclick="switchTab('browse')">🖼 Browse</button>
+</div>
+
+<!-- ─────────── GENERATE TAB ─────────── -->
+<div id="tab-generate" class="tab-panel active">
+
+  <label>Prompt <span style="color:#64748b;font-size:.8rem">(required)</span></label>
+  <textarea id="prompt" rows="4" placeholder="Describe the image you want to create…"></textarea>
+
+  <label>Size</label>
+  <select id="size">
+    <option value="2048x2048" selected>2048 × 2048 (2K square)</option>
+    <option value="1024x1024">1024 × 1024 (standard)</option>
+    <option value="1792x1024">1792 × 1024 (16:9 landscape)</option>
+    <option value="1024x1792">1024 × 1792 (9:16 portrait)</option>
+    <option value="1365x1024">1365 × 1024 (4:3 landscape)</option>
+    <option value="1024x1365">1024 × 1365 (3:4 portrait)</option>
+    <option value="3840x2160">3840 × 2160 (4K)</option>
+  </select>
+
+  <label>Reference images <span style="color:#64748b;font-size:.8rem">(optional — up to 8; triggers edit mode)</span></label>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <input type="file" id="file-input" accept="image/*" multiple>
+    <span>Click or drag images here</span>
+    <div class="file-chips" id="file-chips"></div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="generate-btn" onclick="startGeneration()">⚡ Generate</button>
+    <button class="btn btn-secondary" id="cancel-btn" style="display:none" onclick="cancelPolling()">Cancel</button>
+  </div>
+
+  <div class="status-area" id="status-area" style="display:none"></div>
+  <div class="result-image" id="result-area" style="display:none"></div>
+
+</div>
+
+<!-- ─────────── BROWSE TAB ─────────── -->
+<div id="tab-browse" class="tab-panel">
+
+  <div class="toolbar">
+    <button class="btn btn-secondary" onclick="loadImages()">↻ Refresh</button>
+    <span id="browse-count" style="color:#64748b;font-size:.85rem"></span>
+  </div>
+  <div id="image-grid" class="image-grid"></div>
+
+</div>
+
+<!-- ─────────── MODAL ─────────── -->
+<div class="modal-overlay hidden" id="modal" onclick="closeModal(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <img id="modal-img" src="" alt="preview">
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      <button class="btn btn-primary" id="modal-dl-btn">⬇ Download</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── File selection ───────────────────────────────────────────────────────────
+const selectedFiles = [];
+
+document.getElementById('file-input').addEventListener('change', function() {
+  addFiles(Array.from(this.files));
+  this.value = '';
+});
+
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  addFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+});
+
+function addFiles(files) {
+  for (const f of files) {
+    if (selectedFiles.length >= 8) break;
+    if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+      selectedFiles.push(f);
+    }
+  }
+  renderChips();
+}
+
+function removeFile(idx) {
+  selectedFiles.splice(idx, 1);
+  renderChips();
+}
+
+function renderChips() {
+  const container = document.getElementById('file-chips');
+  container.innerHTML = selectedFiles.map((f, i) =>
+    `<span class="file-chip">${escHtml(f.name)}<button onclick="removeFile(${i})" title="Remove">×</button></span>`
+  ).join('');
+}
+
+// ─── Generate ─────────────────────────────────────────────────────────────────
+let pollingTimer = null;
+let startTime   = null;
+let elapsedTimer = null;
+
+async function startGeneration() {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) { alert('Please enter a prompt.'); return; }
+
+  setGeneratingUI(true);
+  showStatus('pending', 'Submitting request…');
+
+  const formData = new FormData();
+  formData.append('prompt', prompt);
+  formData.append('size', document.getElementById('size').value);
+  for (const f of selectedFiles) formData.append('images', f);
+
+  let jobId;
+  try {
+    const res = await apiFetch('/api/generate', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => 'Unknown error');
+      throw new Error('HTTP ' + res.status + ': ' + txt);
+    }
+    const data = await res.json();
+    jobId = data.jobId;
+  } catch (e) {
+    showError('other', 'Failed to start generation: ' + e.message);
+    setGeneratingUI(false);
+    return;
+  }
+
+  startTime = Date.now();
+  startElapsedTimer();
+  showStatus('running', 'Generating image…');
+  pollJob(jobId);
+}
+
+function pollJob(jobId) {
+  pollingTimer = setTimeout(async () => {
+    try {
+      const res = await apiFetch('/api/jobs/' + jobId);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const job = await res.json();
+
+      if (job.status === 'completed') {
+        stopTimers();
+        setGeneratingUI(false);
+        showResult(job.imageName);
+        return;
+      }
+      if (job.status === 'failed') {
+        stopTimers();
+        setGeneratingUI(false);
+        classifyAndShowError(job.error || 'Image generation failed.');
+        return;
+      }
+      pollJob(jobId); // still running
+    } catch (e) {
+      stopTimers();
+      setGeneratingUI(false);
+      showError('other', 'Polling error: ' + e.message);
+    }
+  }, 3000);
+}
+
+function cancelPolling() {
+  stopTimers();
+  setGeneratingUI(false);
+  document.getElementById('status-area').style.display = 'none';
+}
+
+function stopTimers() {
+  clearTimeout(pollingTimer);
+  clearInterval(elapsedTimer);
+  pollingTimer = null;
+  elapsedTimer = null;
+}
+
+function startElapsedTimer() {
+  elapsedTimer = setInterval(() => {
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    const el = document.getElementById('elapsed-label');
+    if (el) el.textContent = formatElapsed(elapsed);
+  }, 1000);
+}
+
+function formatElapsed(secs) {
+  if (secs < 60) return secs + 's elapsed';
+  return Math.floor(secs / 60) + 'm ' + (secs % 60) + 's elapsed';
+}
+
+function setGeneratingUI(running) {
+  document.getElementById('generate-btn').disabled = running;
+  document.getElementById('cancel-btn').style.display = running ? 'inline-flex' : 'none';
+}
+
+function showStatus(state, msg) {
+  const area = document.getElementById('status-area');
+  area.style.display = 'block';
+  if (state === 'pending') {
+    area.innerHTML = `<div class="status-box status-pending">⏳ ${escHtml(msg)}</div>`;
+  } else if (state === 'running') {
+    area.innerHTML = `<div class="status-box status-running">
+      <div class="spinner"></div>
+      <div><div>${escHtml(msg)}</div><div class="elapsed" id="elapsed-label">0s elapsed</div></div>
+    </div>`;
+  }
+  document.getElementById('result-area').style.display = 'none';
+}
+
+function classifyAndShowError(msg) {
+  if (msg.startsWith('[content_policy]')) {
+    showError('content', msg.replace('[content_policy]', '').trim(), '⚠️ Content Policy');
+  } else if (msg.startsWith('[rate_limit]')) {
+    showError('ratelimit', msg.replace('[rate_limit]', '').trim(), '⏱ Rate Limit');
+  } else {
+    showError('other', msg, '✖ Error');
+  }
+}
+
+function showError(type, msg, label) {
+  const area = document.getElementById('status-area');
+  area.style.display = 'block';
+  const cssClass = type === 'content' ? 'status-error-content'
+                 : type === 'ratelimit' ? 'status-error-ratelimit'
+                 : 'status-error-other';
+  const icon = type === 'content' ? '⚠️' : type === 'ratelimit' ? '⏱' : '✖';
+  const heading = label || icon + ' Error';
+  area.innerHTML = `<div class="status-box ${cssClass}">
+    <span style="font-size:1.2rem;flex-shrink:0">${icon}</span>
+    <div><strong>${escHtml(heading)}</strong><br>${escHtml(msg)}</div>
+  </div>`;
+}
+
+function showResult(imageName) {
+  const area = document.getElementById('result-area');
+  area.style.display = 'block';
+  area.innerHTML = `<div class="status-box" style="background:#0d2418;border-color:#166534;color:#86efac;margin-bottom:.8rem">
+    ✅ Image generated and saved.
+  </div>
+  <img src="/api/images/${encodeURIComponent(imageName)}" alt="generated image" style="max-width:100%;border-radius:10px;border:1px solid #2d3148">
+  <div class="img-actions" style="margin-top:.8rem">
+    <a class="btn btn-secondary" href="/api/images/${encodeURIComponent(imageName)}" download="${escAttr(imageName)}">⬇ Download</a>
+  </div>`;
+  document.getElementById('status-area').style.display = 'none';
+}
+
+// ─── Browse tab ───────────────────────────────────────────────────────────────
+async function loadImages() {
+  const grid = document.getElementById('image-grid');
+  grid.innerHTML = '<div class="empty-state">Loading…</div>';
+  document.getElementById('browse-count').textContent = '';
+
+  try {
+    const res = await apiFetch('/api/images');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const images = await res.json();
+
+    if (images.length === 0) {
+      grid.innerHTML = '<div class="empty-state">No images yet. Go generate one!</div>';
+      return;
+    }
+    document.getElementById('browse-count').textContent = images.length + ' image' + (images.length !== 1 ? 's' : '');
+    grid.innerHTML = images.map(img => `
+      <div class="image-card">
+        <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.prompt)}" loading="lazy"
+             onclick="openModal('${escAttr(img.name)}')">
+        <div class="card-body">
+          <div class="card-name">${escHtml(formatDate(img.lastModified))}</div>
+          <div class="card-prompt">${escHtml(img.prompt || '(no prompt)')}</div>
+        </div>
+        <div class="card-footer">
+          <button class="btn btn-secondary" onclick="openModal('${escAttr(img.name)}')">View</button>
+          <a class="btn btn-primary" href="/api/images/${encodeURIComponent(img.name)}" download="${escAttr(img.name)}">⬇</a>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="color:#f87171">Failed to load: ${escHtml(e.message)}</div>`;
+  }
+}
+
+// ─── Modal ───────────────────────────────────────────────────────────────────
+function openModal(name) {
+  document.getElementById('modal-img').src = '/api/images/' + encodeURIComponent(name);
+  const dlBtn = document.getElementById('modal-dl-btn');
+  dlBtn.onclick = () => {
+    const a = document.createElement('a');
+    a.href = '/api/images/' + encodeURIComponent(name);
+    a.download = name;
+    a.click();
+  };
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal')) {
+    document.getElementById('modal').classList.add('hidden');
+    document.getElementById('modal-img').src = '';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal({ target: document.getElementById('modal') });
+});
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab-btn[onclick*="${tab}"]`).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'browse') loadImages();
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function apiFetch(url, opts) {
+  return fetch(url, opts);
+}
+
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(str) {
+  return String(str ?? '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function formatDate(iso) {
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+</script>
+</body>
+</html>
