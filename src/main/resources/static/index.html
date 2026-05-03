@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Image Creator</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -207,8 +208,10 @@
 <div class="modal-overlay hidden" id="modal" onclick="closeModal(event)">
   <div class="modal-box" onclick="event.stopPropagation()">
     <img id="modal-img" src="" alt="preview">
+    <div id="modal-prompt" style="padding:.6rem .2rem;font-size:.85rem;color:#94a3b8;word-break:break-word;display:none"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      <button class="btn btn-secondary" id="modal-copy-btn" style="display:none" onclick="copyModalPrompt()">📋 Copy prompt</button>
       <button class="btn btn-primary" id="modal-dl-btn">⬇ Download</button>
     </div>
   </div>
@@ -452,13 +455,13 @@ async function loadImages() {
     grid.innerHTML = images.map(img => `
       <div class="image-card">
         <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.prompt)}" loading="lazy"
-             onclick="openModal('${escAttr(img.name)}')">
+             onclick="openModal('${escAttr(img.name)}', '${escAttr(img.prompt)}')">
         <div class="card-body">
           <div class="card-name">${escHtml(formatDate(img.lastModified))}</div>
           <div class="card-prompt">${escHtml(img.prompt || '(no prompt)')}</div>
         </div>
         <div class="card-footer">
-          <button class="btn btn-secondary" onclick="openModal('${escAttr(img.name)}')">View</button>
+          <button class="btn btn-secondary" onclick="openModal('${escAttr(img.name)}', '${escAttr(img.prompt)}')">View</button>
           <a class="btn btn-primary" href="/api/images/${encodeURIComponent(img.name)}" download="${escAttr(img.name)}">⬇</a>
           <button class="btn btn-danger" onclick="deleteImage('${escAttr(img.name)}', this)">🗑</button>
         </div>
@@ -491,8 +494,19 @@ async function deleteImage(name, btn) {
 }
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
-function openModal(name) {
+function openModal(name, prompt) {
   document.getElementById('modal-img').src = '/api/images/' + encodeURIComponent(name);
+  const promptEl = document.getElementById('modal-prompt');
+  const copyBtn = document.getElementById('modal-copy-btn');
+  if (prompt) {
+    promptEl.textContent = prompt;
+    promptEl.style.display = 'block';
+    copyBtn.style.display = 'inline-flex';
+    copyBtn.dataset.prompt = prompt;
+  } else {
+    promptEl.style.display = 'none';
+    copyBtn.style.display = 'none';
+  }
   const dlBtn = document.getElementById('modal-dl-btn');
   dlBtn.onclick = () => {
     const a = document.createElement('a');
@@ -507,6 +521,19 @@ function closeModal(e) {
   if (!e || e.target === document.getElementById('modal')) {
     document.getElementById('modal').classList.add('hidden');
     document.getElementById('modal-img').src = '';
+  }
+}
+
+async function copyModalPrompt() {
+  const btn = document.getElementById('modal-copy-btn');
+  const prompt = btn.dataset.prompt;
+  try {
+    await navigator.clipboard.writeText(prompt);
+    btn.textContent = '✅ Copied!';
+    setTimeout(() => btn.textContent = '📋 Copy prompt', 2000);
+  } catch {
+    btn.textContent = '✖ Failed';
+    setTimeout(() => btn.textContent = '📋 Copy prompt', 2000);
   }
 }
 
