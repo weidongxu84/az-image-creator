@@ -30,7 +30,7 @@ public class ImageController {
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> generate(
             @RequestParam("prompt") String prompt,
-            @RequestParam(name = "size", required = false, defaultValue = "2048x1536") String size,
+            @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
             @RequestParam(name = "outputFormat", required = false, defaultValue = "jpeg") String outputFormat,
             @RequestParam(name = "images", required = false) List<MultipartFile> images,
             @RequestParam(name = "mask", required = false) MultipartFile mask) {

@@ -143,14 +143,18 @@
 
   <label>Size</label>
   <select id="size">
-    <option value="2048x1536" selected>2048 × 1536 (4:3 landscape)</option>
-    <option value="1536x2048">1536 × 2048 (3:4 portrait)</option>
-    <option value="2048x2048">2048 × 2048 (1:1 square)</option>
+    <option value="3264x2448" selected>3264 × 2448 (4:3 landscape)</option>
+    <option value="2448x3264">2448 × 3264 (3:4 portrait)</option>
+    <option value="2880x2880">2880 × 2880 (1:1 square)</option>
     <option value="1024x1024">1024 × 1024 (1:1 standard)</option>
-    <option value="2048x1152">2048 × 1152 (16:9 landscape)</option>
-    <option value="1152x2048">1152 × 2048 (9:16 portrait)</option>
-    <option value="3840x2160">3840 × 2160 (4K)</option>
+    <option value="3840x2160">3840 × 2160 (16:9 / 4K)</option>
+    <option value="2160x3840">2160 × 3840 (9:16)</option>
   </select>
+
+  <div style="margin-top:.6rem;display:flex;align-items:center;gap:.5rem">
+    <input type="checkbox" id="preview-toggle" style="width:auto;cursor:pointer">
+    <label for="preview-toggle" style="margin:0;cursor:pointer;font-size:.85rem;color:#94a3b8">Preview mode (smaller size, faster)</label>
+  </div>
 
   <label>Output format</label>
   <select id="output-format">
@@ -268,7 +272,14 @@ async function startGeneration() {
 
   const formData = new FormData();
   formData.append('prompt', prompt);
-  formData.append('size', document.getElementById('size').value);
+  const PREVIEW_SIZES = {
+    '3264x2448': '1024x768', '2448x3264': '768x1024',
+    '2880x2880': '1024x1024', '1024x1024': '1024x1024',
+    '3840x2160': '1024x576', '2160x3840': '576x1024',
+  };
+  const baseSize = document.getElementById('size').value;
+  const previewMode = document.getElementById('preview-toggle').checked;
+  formData.append('size', previewMode ? (PREVIEW_SIZES[baseSize] || baseSize) : baseSize);
   formData.append('outputFormat', document.getElementById('output-format').value);
   for (const f of selectedFiles) formData.append('images', f);
   const maskBlob = exportMask();
