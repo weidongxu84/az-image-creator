@@ -58,7 +58,9 @@ curl -s https://az-image-creator.azurewebsites.net/actuator/health
 
 Expected response: `{"status":"UP",...}`
 
-If health check fails, inspect the App Service logs:
+The health endpoint is public (`permitAll()`) — no credentials needed. A 401 during the first few seconds after deploy is normal (app still starting); retry after a brief wait.
+
+If the health check keeps failing, inspect the App Service logs:
 
 ```bash
 az webapp log tail --name az-image-creator --resource-group appservice
