@@ -28,8 +28,8 @@ public class AppConfig {
         username = Objects.requireNonNull(config.get("PERSONAL_USERNAME"), "PERSONAL_USERNAME must be set");
         personalToken = Objects.requireNonNull(config.get("PERSONAL_TOKEN"), "PERSONAL_TOKEN must be set");
 
-        openAIEndpoint = config.get("AZURE_OPENAI_ENDPOINT",
-                "https://weido-measar51-eastus2.cognitiveservices.azure.com");
+        openAIEndpoint = Objects.requireNonNull(config.get("AZURE_OPENAI_ENDPOINT"),
+                "AZURE_OPENAI_ENDPOINT must be set");
         openAIDeployment = config.get("AZURE_OPENAI_DEPLOYMENT", "gpt-image-2");
         openAIApiKey = config.get("AZURE_OPENAI_IMAGE_API_KEY"); // optional: falls back to managed identity
 
