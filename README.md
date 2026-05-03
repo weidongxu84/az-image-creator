@@ -9,10 +9,6 @@ A web application for generating images using Azure OpenAI, with a browser-based
 - Asynchronous generation — the UI polls for completion so long-running requests don't time out in the browser
 - Images are stored in Azure Blob Storage
 
-## Live App
-
-**https://az-image-creator.azurewebsites.net**
-
 ## Tech Stack
 
 - Java / Spring Boot
