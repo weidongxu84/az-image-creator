@@ -146,7 +146,6 @@
     <option value="3264x2448" selected>3264 × 2448 (4:3 landscape)</option>
     <option value="2448x3264">2448 × 3264 (3:4 portrait)</option>
     <option value="2880x2880">2880 × 2880 (1:1 square)</option>
-    <option value="1024x1024">1024 × 1024 (1:1 standard)</option>
     <option value="3840x2160">3840 × 2160 (16:9 / 4K)</option>
     <option value="2160x3840">2160 × 3840 (9:16)</option>
   </select>
@@ -274,7 +273,7 @@ async function startGeneration() {
   formData.append('prompt', prompt);
   const PREVIEW_SIZES = {
     '3264x2448': '1024x768', '2448x3264': '768x1024',
-    '2880x2880': '1024x1024', '1024x1024': '1024x1024',
+    '2880x2880': '1024x1024',
     '3840x2160': '1024x576', '2160x3840': '576x1024',
   };
   const baseSize = document.getElementById('size').value;

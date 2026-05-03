@@ -1,6 +1,7 @@
 package io.weidongxu.webapp.imagecreator;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -8,9 +9,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-@Slf4j
 @Service
 public class ImageGenerationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ImageGenerationService.class);
 
     @Autowired
     private OpenAIService openAIService;

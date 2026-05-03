@@ -7,6 +7,7 @@ import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobListDetails;
 import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.core.util.BinaryData;
 import org.springframework.stereotype.Service;
 
@@ -47,16 +48,17 @@ public class StorageService {
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
                 + ext;
 
-        var blobClient = containerClient.getBlobClient(blobName);
-        blobClient.upload(BinaryData.fromBytes(imageData), true);
-        blobClient.setHttpHeaders(new BlobHttpHeaders().setContentType(contentType));
-
+        Map<String, String> metadata = new HashMap<>();
         if (prompt != null && !prompt.isBlank()) {
-            Map<String, String> metadata = new HashMap<>();
             String truncated = prompt.length() > 500 ? prompt.substring(0, 500) : prompt;
             metadata.put("prompt", truncated.replace("\r", " ").replace("\n", " "));
-            blobClient.setMetadata(metadata);
         }
+
+        BlobParallelUploadOptions options = new BlobParallelUploadOptions(BinaryData.fromBytes(imageData))
+                .setHeaders(new BlobHttpHeaders().setContentType(contentType))
+                .setMetadata(metadata);
+
+        containerClient.getBlobClient(blobName).uploadWithResponse(options, null, null);
         return blobName;
     }
 

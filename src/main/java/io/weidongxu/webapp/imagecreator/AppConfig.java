@@ -2,15 +2,14 @@ package io.weidongxu.webapp.imagecreator;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.util.Configuration;
-import com.azure.identity.DefaultAzureCredentialBuilder;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.context.annotation.Scope;
+import com.azure.identity.ChainedTokenCredentialBuilder;
+import com.azure.identity.EnvironmentCredentialBuilder;
+import com.azure.identity.ManagedIdentityCredentialBuilder;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 
 @Component
-@Scope(value = ConfigurableBeanFactory.SCOPE_SINGLETON)
 public class AppConfig {
 
     private final String username;
@@ -37,7 +36,10 @@ public class AppConfig {
                 "STORAGE_ACCOUNT_NAME must be set");
         storageContainerName = config.get("STORAGE_CONTAINER_NAME", "images");
 
-        credential = new DefaultAzureCredentialBuilder().build();
+        credential = new ChainedTokenCredentialBuilder()
+                .addLast(new EnvironmentCredentialBuilder().build())
+                .addLast(new ManagedIdentityCredentialBuilder().build())
+                .build();
     }
 
     public String getUsername() { return username; }
