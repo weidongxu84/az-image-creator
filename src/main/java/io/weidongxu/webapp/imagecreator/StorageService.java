@@ -50,7 +50,7 @@ public class StorageService {
 
         Map<String, String> metadata = new HashMap<>();
         if (prompt != null && !prompt.isBlank()) {
-            String truncated = prompt.length() > 500 ? prompt.substring(0, 500) : prompt;
+            String truncated = prompt.length() > 4000 ? prompt.substring(0, 4000) : prompt;
             metadata.put("prompt", truncated.replace("\r", " ").replace("\n", " "));
         }
 
