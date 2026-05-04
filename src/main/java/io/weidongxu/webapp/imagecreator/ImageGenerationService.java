@@ -24,13 +24,14 @@ public class ImageGenerationService {
 
     @Async
     public void generateImage(String jobId, String prompt, String size,
-                              List<byte[]> images, byte[] mask, String outputFormat) {
+                              List<byte[]> images, List<String> imageFilenames,
+                              byte[] mask, String outputFormat) {
         jobStore.setRunning(jobId);
         try {
             byte[] imageData;
             if (images != null && !images.isEmpty()) {
                 log.info("Job {}: editing {} image(s), size={}, format={}", jobId, images.size(), size, outputFormat);
-                imageData = openAIService.editImage(prompt, size, images, mask, outputFormat);
+                imageData = openAIService.editImage(prompt, size, images, imageFilenames, mask, outputFormat);
             } else {
                 log.info("Job {}: generating new image, size={}, format={}", jobId, size, outputFormat);
                 imageData = openAIService.generateImage(prompt, size, outputFormat);

@@ -41,17 +41,24 @@ public class ImageController {
         // Read bytes eagerly in the HTTP request thread — MultipartFile temp files are
         // deleted when the request ends, so the @Async thread must not call getBytes() itself.
         List<byte[]> imageBytes = null;
+        List<String> imageFilenames = null;
         if (images != null) {
-            imageBytes = images.stream()
+            List<MultipartFile> valid = images.stream()
                     .filter(f -> f != null && !f.isEmpty())
-                    .map(f -> { try { return f.getBytes(); } catch (IOException e) { throw new RuntimeException(e); } })
                     .collect(Collectors.toList());
-            if (imageBytes.isEmpty()) imageBytes = null;
+            if (!valid.isEmpty()) {
+                imageBytes = valid.stream()
+                        .map(f -> { try { return f.getBytes(); } catch (IOException e) { throw new RuntimeException(e); } })
+                        .collect(Collectors.toList());
+                imageFilenames = valid.stream()
+                        .map(f -> f.getOriginalFilename() != null ? f.getOriginalFilename() : "image.jpg")
+                        .collect(Collectors.toList());
+            }
         }
         byte[] maskBytes = (mask != null && !mask.isEmpty()) ? mask.getBytes() : null;
 
         String jobId = jobStore.createJob();
-        imageGenerationService.generateImage(jobId, prompt, size, imageBytes, maskBytes, outputFormat);
+        imageGenerationService.generateImage(jobId, prompt, size, imageBytes, imageFilenames, maskBytes, outputFormat);
 
         log.info("Started job {} for prompt: {}", jobId, prompt.length() > 80
                 ? prompt.substring(0, 80) + "…" : prompt);

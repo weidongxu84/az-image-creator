@@ -14,7 +14,10 @@ import com.openai.models.images.ImagesResponse;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -75,34 +78,60 @@ public class OpenAIService {
     }
 
     public byte[] editImage(String prompt, String size, List<byte[]> images,
-                            byte[] mask, String outputFormat) {
-        List<InputStream> imageStreams = new ArrayList<>();
-        for (byte[] imageBytes : images) {
-            imageStreams.add(new ByteArrayInputStream(imageBytes));
-        }
-
-        var params = ImageEditParams.builder()
-                .prompt(prompt)
-                .model(deployment)
-                .n(1L)
-                .size(ImageEditParams.Size.of(size))
-                .quality(ImageEditParams.Quality.HIGH)
-                .imageOfInputStreams(imageStreams)
-                .outputFormat(ImageEditParams.OutputFormat.of(outputFormat));
-
-        if (isCompressedFormat(outputFormat)) {
-            params.outputCompression(OUTPUT_COMPRESSION);
-        }
-
-        if (mask != null) {
-            params.mask(new ByteArrayInputStream(mask));
-        }
-
+                            List<String> filenames, byte[] mask, String outputFormat) {
+        List<Path> tempFiles = new ArrayList<>();
         try {
-            return extractImageData(client.images().edit(params.build()));
-        } catch (OpenAIServiceException e) {
-            throw new OpenAIException(e.statusCode(),
-                    parseErrorMessage(e.body().toString(), e.statusCode()));
+            // Write each image to a temp file with the correct extension so the SDK
+            // includes a proper filename in the multipart form — OpenAI uses it to
+            // detect the image format (jpeg/png/webp). Without a filename the API
+            // rejects the request with HTTP 400.
+            for (int i = 0; i < images.size(); i++) {
+                String name = (filenames != null && i < filenames.size()) ? filenames.get(i) : "image.jpg";
+                String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')) : ".jpg";
+                Path temp = Files.createTempFile("openai-edit-", ext);
+                Files.write(temp, images.get(i));
+                tempFiles.add(temp);
+            }
+
+            var paramsBuilder = ImageEditParams.builder()
+                    .prompt(prompt)
+                    .model(deployment)
+                    .n(1L)
+                    .size(ImageEditParams.Size.of(size))
+                    .quality(ImageEditParams.Quality.HIGH)
+                    .outputFormat(ImageEditParams.OutputFormat.of(outputFormat));
+
+            if (isCompressedFormat(outputFormat)) {
+                paramsBuilder.outputCompression(OUTPUT_COMPRESSION);
+            }
+
+            if (tempFiles.size() == 1) {
+                paramsBuilder.image(tempFiles.get(0));
+            } else {
+                List<InputStream> streams = tempFiles.stream()
+                        .map(p -> { try { return Files.newInputStream(p); } catch (IOException e) { throw new RuntimeException(e); } })
+                        .collect(java.util.stream.Collectors.toList());
+                paramsBuilder.imageOfInputStreams(streams);
+            }
+
+            if (mask != null) {
+                paramsBuilder.mask(new ByteArrayInputStream(mask));
+            }
+
+            try {
+                return extractImageData(client.images().edit(paramsBuilder.build()));
+            } catch (OpenAIServiceException e) {
+                throw new OpenAIException(e.statusCode(),
+                        parseErrorMessage(e.body().toString(), e.statusCode()));
+            }
+        } catch (OpenAIException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to prepare image edit request: " + e.getMessage(), e);
+        } finally {
+            for (Path temp : tempFiles) {
+                try { Files.deleteIfExists(temp); } catch (IOException ignored) {}
+            }
         }
     }
 
