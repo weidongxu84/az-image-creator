@@ -12,10 +12,8 @@ import com.openai.models.images.ImageEditParams;
 import com.openai.models.images.ImageGenerateParams;
 import com.openai.models.images.ImagesResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
@@ -76,11 +74,11 @@ public class OpenAIService {
         }
     }
 
-    public byte[] editImage(String prompt, String size, List<MultipartFile> images,
-                            MultipartFile mask, String outputFormat) throws IOException {
+    public byte[] editImage(String prompt, String size, List<byte[]> images,
+                            byte[] mask, String outputFormat) {
         List<InputStream> imageStreams = new ArrayList<>();
-        for (MultipartFile image : images) {
-            imageStreams.add(new ByteArrayInputStream(image.getBytes()));
+        for (byte[] imageBytes : images) {
+            imageStreams.add(new ByteArrayInputStream(imageBytes));
         }
 
         var params = ImageEditParams.builder()
@@ -96,8 +94,8 @@ public class OpenAIService {
             params.outputCompression(OUTPUT_COMPRESSION);
         }
 
-        if (mask != null && !mask.isEmpty()) {
-            params.mask(new ByteArrayInputStream(mask.getBytes()));
+        if (mask != null) {
+            params.mask(new ByteArrayInputStream(mask));
         }
 
         try {

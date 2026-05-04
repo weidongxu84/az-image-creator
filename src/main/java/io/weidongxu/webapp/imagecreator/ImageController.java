@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api")
@@ -35,17 +36,22 @@ public class ImageController {
             @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
             @RequestParam(name = "outputFormat", required = false, defaultValue = "jpeg") String outputFormat,
             @RequestParam(name = "images", required = false) List<MultipartFile> images,
-            @RequestParam(name = "mask", required = false) MultipartFile mask) {
+            @RequestParam(name = "mask", required = false) MultipartFile mask) throws IOException {
 
-        List<MultipartFile> validImages = images == null ? null
-                : images.stream().filter(f -> f != null && !f.isEmpty()).collect(Collectors.toList());
-
-        MultipartFile validMask = (mask != null && !mask.isEmpty()) ? mask : null;
+        // Read bytes eagerly in the HTTP request thread — MultipartFile temp files are
+        // deleted when the request ends, so the @Async thread must not call getBytes() itself.
+        List<byte[]> imageBytes = null;
+        if (images != null) {
+            imageBytes = images.stream()
+                    .filter(f -> f != null && !f.isEmpty())
+                    .map(f -> { try { return f.getBytes(); } catch (IOException e) { throw new RuntimeException(e); } })
+                    .collect(Collectors.toList());
+            if (imageBytes.isEmpty()) imageBytes = null;
+        }
+        byte[] maskBytes = (mask != null && !mask.isEmpty()) ? mask.getBytes() : null;
 
         String jobId = jobStore.createJob();
-        imageGenerationService.generateImage(jobId, prompt, size,
-                (validImages != null && validImages.isEmpty()) ? null : validImages,
-                validMask, outputFormat);
+        imageGenerationService.generateImage(jobId, prompt, size, imageBytes, maskBytes, outputFormat);
 
         log.info("Started job {} for prompt: {}", jobId, prompt.length() > 80
                 ? prompt.substring(0, 80) + "…" : prompt);

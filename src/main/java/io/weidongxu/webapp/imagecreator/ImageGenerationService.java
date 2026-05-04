@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,7 +24,7 @@ public class ImageGenerationService {
 
     @Async
     public void generateImage(String jobId, String prompt, String size,
-                              List<MultipartFile> images, MultipartFile mask, String outputFormat) {
+                              List<byte[]> images, byte[] mask, String outputFormat) {
         jobStore.setRunning(jobId);
         try {
             byte[] imageData;
