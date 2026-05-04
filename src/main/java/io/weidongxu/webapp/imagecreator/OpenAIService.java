@@ -8,16 +8,15 @@ import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.credential.BearerTokenCredential;
 import com.openai.errors.OpenAIServiceException;
+import com.openai.core.MultipartField;
 import com.openai.models.images.ImageEditParams;
+import com.openai.models.images.ImageEditParams.Image;
 import com.openai.models.images.ImageGenerateParams;
 import com.openai.models.images.ImagesResponse;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -27,6 +26,7 @@ import java.util.Optional;
 @Service
 public class OpenAIService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAIService.class);
     private static final String API_VERSION = "2025-04-01-preview";
     private static final long OUTPUT_COMPRESSION = 90L;
 
@@ -79,20 +79,7 @@ public class OpenAIService {
 
     public byte[] editImage(String prompt, String size, List<byte[]> images,
                             List<String> filenames, byte[] mask, String outputFormat) {
-        List<Path> tempFiles = new ArrayList<>();
         try {
-            // Write each image to a temp file with the correct extension so the SDK
-            // includes a proper filename in the multipart form — OpenAI uses it to
-            // detect the image format (jpeg/png/webp). Without a filename the API
-            // rejects the request with HTTP 400.
-            for (int i = 0; i < images.size(); i++) {
-                String name = (filenames != null && i < filenames.size()) ? filenames.get(i) : "image.jpg";
-                String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')) : ".jpg";
-                Path temp = Files.createTempFile("openai-edit-", ext);
-                Files.write(temp, images.get(i));
-                tempFiles.add(temp);
-            }
-
             var paramsBuilder = ImageEditParams.builder()
                     .prompt(prompt)
                     .model(deployment)
@@ -105,22 +92,39 @@ public class OpenAIService {
                 paramsBuilder.outputCompression(OUTPUT_COMPRESSION);
             }
 
-            if (tempFiles.size() == 1) {
-                paramsBuilder.image(tempFiles.get(0));
+            String firstName = (filenames != null && !filenames.isEmpty()) ? filenames.get(0) : "image.jpg";
+            log.info("editImage: {} image(s), first='{}' bytes={}, size={}, format={}",
+                    images.size(), firstName, images.get(0).length, size, outputFormat);
+
+            if (images.size() == 1) {
+                paramsBuilder.image(MultipartField.<Image>builder()
+                        .value(Image.ofInputStream(new ByteArrayInputStream(images.get(0))))
+                        .contentType(contentTypeFromFilename(firstName))
+                        .filename(firstName)
+                        .build());
             } else {
-                List<InputStream> streams = tempFiles.stream()
-                        .map(p -> { try { return Files.newInputStream(p); } catch (IOException e) { throw new RuntimeException(e); } })
+                List<InputStream> streams = images.stream()
+                        .map(b -> (InputStream) new ByteArrayInputStream(b))
                         .collect(java.util.stream.Collectors.toList());
-                paramsBuilder.imageOfInputStreams(streams);
+                paramsBuilder.image(MultipartField.<Image>builder()
+                        .value(Image.ofInputStreams(streams))
+                        .contentType(contentTypeFromFilename(firstName))
+                        .filename(firstName)
+                        .build());
             }
 
             if (mask != null) {
-                paramsBuilder.mask(new ByteArrayInputStream(mask));
+                paramsBuilder.mask(MultipartField.<InputStream>builder()
+                        .value(new ByteArrayInputStream(mask))
+                        .contentType("image/png")
+                        .filename("mask.png")
+                        .build());
             }
 
             try {
                 return extractImageData(client.images().edit(paramsBuilder.build()));
             } catch (OpenAIServiceException e) {
+                log.warn("editImage: HTTP {} raw body: {}", e.statusCode(), e.body());
                 throw new OpenAIException(e.statusCode(),
                         parseErrorMessage(e.body().toString(), e.statusCode()));
             }
@@ -128,11 +132,15 @@ public class OpenAIService {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to prepare image edit request: " + e.getMessage(), e);
-        } finally {
-            for (Path temp : tempFiles) {
-                try { Files.deleteIfExists(temp); } catch (IOException ignored) {}
-            }
         }
+    }
+
+    private String contentTypeFromFilename(String filename) {
+        if (filename == null) return "image/jpeg";
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        return "image/jpeg";
     }
 
     private byte[] extractImageData(ImagesResponse response) {
