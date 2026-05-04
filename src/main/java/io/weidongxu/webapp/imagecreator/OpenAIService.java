@@ -86,6 +86,7 @@ public class OpenAIService {
                     .n(1L)
                     .size(ImageEditParams.Size.of(size))
                     .quality(ImageEditParams.Quality.HIGH)
+                    .inputFidelity(ImageEditParams.InputFidelity.HIGH)
                     .outputFormat(ImageEditParams.OutputFormat.of(outputFormat));
 
             if (isCompressedFormat(outputFormat)) {
