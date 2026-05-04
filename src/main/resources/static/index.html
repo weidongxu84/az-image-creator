@@ -325,7 +325,8 @@ async function startGeneration() {
   pollJob(jobId);
 }
 
-function pollJob(jobId) {
+function pollJob(jobId, networkFailures = 0) {
+  const MAX_NETWORK_FAILURES = 4;
   pollingTimer = setTimeout(async () => {
     try {
       const res = await apiFetch('/api/jobs/' + jobId);
@@ -344,11 +345,16 @@ function pollJob(jobId) {
         classifyAndShowError(job.error || 'Image generation failed.');
         return;
       }
-      pollJob(jobId); // still running
+      pollJob(jobId, 0); // still running — reset failure count on success
     } catch (e) {
-      stopTimers();
-      setGeneratingUI(false);
-      showError('other', 'Polling error: ' + e.message);
+      if (networkFailures + 1 < MAX_NETWORK_FAILURES) {
+        // Transient network error — retry with a short backoff
+        pollJob(jobId, networkFailures + 1);
+      } else {
+        stopTimers();
+        setGeneratingUI(false);
+        showError('other', 'Polling error after retries: ' + e.message);
+      }
     }
   }, 3000);
 }
