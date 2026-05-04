@@ -459,19 +459,26 @@ async function loadImages() {
     }
     document.getElementById('browse-count').textContent = images.length + ' image' + (images.length !== 1 ? 's' : '');
     grid.innerHTML = images.map(img => `
-      <div class="image-card">
-        <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.prompt)}" loading="lazy"
-             onclick="openModal('${escAttr(img.name)}', '${escAttr(img.prompt)}')">
+      <div class="image-card" data-name="${escAttr(img.name)}" data-prompt="${escAttr(img.prompt)}">
+        <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.prompt)}" loading="lazy">
         <div class="card-body">
           <div class="card-name">${escHtml(formatDate(img.lastModified))}</div>
           <div class="card-prompt">${escHtml(img.prompt || '(no prompt)')}</div>
         </div>
         <div class="card-footer">
-          <button class="btn btn-secondary" onclick="openModal('${escAttr(img.name)}', '${escAttr(img.prompt)}')">View</button>
+          <button class="btn btn-secondary card-view-btn">View</button>
           <a class="btn btn-primary" href="/api/images/${encodeURIComponent(img.name)}" download="${escAttr(img.name)}">⬇</a>
-          <button class="btn btn-danger" onclick="deleteImage('${escAttr(img.name)}', this)">🗑</button>
+          <button class="btn btn-danger card-delete-btn">🗑</button>
         </div>
       </div>`).join('');
+
+    grid.querySelectorAll('.image-card').forEach(card => {
+      const name = card.dataset.name;
+      const prompt = card.dataset.prompt;
+      card.querySelector('.thumb').addEventListener('click', () => openModal(name, prompt));
+      card.querySelector('.card-view-btn').addEventListener('click', () => openModal(name, prompt));
+      card.querySelector('.card-delete-btn').addEventListener('click', function() { deleteImage(name, this); });
+    });
   } catch (e) {
     grid.innerHTML = `<div class="empty-state" style="color:#f87171">Failed to load: ${escHtml(e.message)}</div>`;
   }
