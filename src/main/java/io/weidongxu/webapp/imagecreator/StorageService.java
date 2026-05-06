@@ -11,6 +11,9 @@ import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.core.util.BinaryData;
 import org.springframework.stereotype.Service;
 
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -51,7 +54,8 @@ public class StorageService {
         Map<String, String> metadata = new HashMap<>();
         if (prompt != null && !prompt.isBlank()) {
             String truncated = prompt.length() > 4000 ? prompt.substring(0, 4000) : prompt;
-            metadata.put("prompt", truncated.replace("\r", " ").replace("\n", " "));
+            String cleaned = truncated.replace("\r", " ").replace("\n", " ");
+            metadata.put("prompt", URLEncoder.encode(cleaned, StandardCharsets.UTF_8));
         }
 
         BlobParallelUploadOptions options = new BlobParallelUploadOptions(BinaryData.fromBytes(imageData))
@@ -73,9 +77,7 @@ public class StorageService {
                 .map(item -> new ImageInfo(
                         item.getName(),
                         item.getProperties().getLastModified().toString(),
-                        item.getMetadata() != null
-                                ? item.getMetadata().getOrDefault("prompt", "")
-                                : ""))
+                        decodePrompt(item.getMetadata())))
                 .collect(Collectors.toList());
     }
 
@@ -85,5 +87,17 @@ public class StorageService {
 
     public void delete(String blobName) {
         containerClient.getBlobClient(blobName).delete();
+    }
+
+    private String decodePrompt(Map<String, String> metadata) {
+        if (metadata == null) return "";
+        String raw = metadata.getOrDefault("prompt", "");
+        if (raw.isEmpty()) return "";
+        try {
+            return URLDecoder.decode(raw, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            // Already plain text (old entries before encoding was added)
+            return raw;
+        }
     }
 }

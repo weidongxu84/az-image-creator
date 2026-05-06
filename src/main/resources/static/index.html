@@ -158,8 +158,8 @@
 
   <label>Output format</label>
   <select id="output-format">
-    <option value="jpeg">JPEG (compressed, smaller file)</option>
     <option value="png" selected>PNG (lossless)</option>
+    <option value="jpeg">JPEG (compressed, smaller file)</option>
     <option value="webp">WebP (compressed)</option>
   </select>
 
@@ -208,7 +208,8 @@
 <div class="modal-overlay hidden" id="modal" onclick="closeModal(event)">
   <div class="modal-box" onclick="event.stopPropagation()">
     <img id="modal-img" src="" alt="preview">
-    <div id="modal-prompt" style="padding:.6rem .2rem;font-size:.85rem;color:#94a3b8;word-break:break-word;display:none"></div>
+    <div id="modal-name" style="padding:.4rem .2rem;font-size:.75rem;color:#64748b;word-break:break-all"></div>
+    <div id="modal-prompt" style="padding:.4rem .2rem;font-size:.85rem;color:#94a3b8;word-break:break-word;display:none"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Close</button>
       <button class="btn btn-secondary" id="modal-copy-btn" style="display:none" onclick="copyModalPrompt()">📋 Copy prompt</button>
@@ -460,10 +461,10 @@ async function loadImages() {
     document.getElementById('browse-count').textContent = images.length + ' image' + (images.length !== 1 ? 's' : '');
     grid.innerHTML = images.map(img => `
       <div class="image-card" data-name="${escAttr(img.name)}" data-prompt="${escAttr(img.prompt)}">
-        <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.prompt)}" loading="lazy">
+        <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.name)}" loading="lazy">
         <div class="card-body">
           <div class="card-name">${escHtml(formatDate(img.lastModified))}</div>
-          <div class="card-prompt">${escHtml(img.prompt || '(no prompt)')}</div>
+          <div class="card-prompt" title="${escAttr(img.prompt || '')}">${escHtml(img.name)}</div>
         </div>
         <div class="card-footer">
           <button class="btn btn-secondary card-view-btn">View</button>
@@ -509,6 +510,7 @@ async function deleteImage(name, btn) {
 // ─── Modal ───────────────────────────────────────────────────────────────────
 function openModal(name, prompt) {
   document.getElementById('modal-img').src = '/api/images/' + encodeURIComponent(name);
+  document.getElementById('modal-name').textContent = name;
   const promptEl = document.getElementById('modal-prompt');
   const copyBtn = document.getElementById('modal-copy-btn');
   if (prompt) {
