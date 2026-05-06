@@ -25,7 +25,7 @@ public class OpenAIService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAIService.class);
     private static final String API_VERSION = "2025-04-01-preview";
-    private static final long OUTPUT_COMPRESSION = 90L;
+    private static final long OUTPUT_COMPRESSION = 95L;
 
     private final String deployment;
     private final OpenAIClient client;
