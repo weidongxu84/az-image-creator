@@ -1,5 +1,6 @@
 package io.weidongxu.webapp.imagecreator;
 
+import com.openai.errors.OpenAIServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,12 +41,33 @@ public class ImageGenerationService {
             log.info("Job {}: completed, saved as {}", jobId, blobName);
             jobStore.setCompleted(jobId, blobName);
 
-        } catch (OpenAIException e) {
-            log.warn("Job {}: OpenAI error (HTTP {}): {}", jobId, e.getStatusCode(), e.getMessage());
-            jobStore.setFailed(jobId, e.getMessage());
+        } catch (OpenAIServiceException e) {
+            String userMessage = classifyOpenAIError(e);
+            log.warn("Job {}: OpenAI error HTTP {} code={} type={} message={}",
+                    jobId, e.statusCode(), e.code().orElse(""), e.type().orElse(""), e.getMessage());
+            jobStore.setFailed(jobId, userMessage);
         } catch (Exception e) {
             log.error("Job {}: unexpected error", jobId, e);
             jobStore.setFailed(jobId, "Internal error: " + e.getMessage());
         }
+    }
+
+    private String classifyOpenAIError(OpenAIServiceException e) {
+        String code = e.code().orElse("").toLowerCase();
+        int status = e.statusCode();
+        String message = e.getMessage();
+        String detail = (message != null && !message.isBlank()) ? message.trim()
+                : "API error " + status;
+
+        if ("moderation_blocked".equals(code)
+                || "contentfilter".equals(code)
+                || "content_filter".equals(code)
+                || detail.toLowerCase().contains("safety")) {
+            return "[content_policy] " + detail;
+        }
+        if (status == 429 || "ratelimitreached".equals(code)) {
+            return "[rate_limit] " + detail;
+        }
+        return detail;
     }
 }

@@ -1,8 +1,6 @@
 package io.weidongxu.webapp.imagecreator;
 
 import com.azure.core.credential.TokenRequestContext;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.azure.AzureOpenAIServiceVersion;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -18,7 +16,6 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -32,11 +29,9 @@ public class OpenAIService {
 
     private final String deployment;
     private final OpenAIClient client;
-    private final ObjectMapper objectMapper;
 
-    public OpenAIService(AppConfig config, ObjectMapper objectMapper) {
+    public OpenAIService(AppConfig config) {
         this.deployment = config.getOpenAIDeployment();
-        this.objectMapper = objectMapper;
 
         var builder = OpenAIOkHttpClient.builder()
                 .baseUrl(config.getOpenAIEndpoint())
@@ -69,12 +64,7 @@ public class OpenAIService {
             params.outputCompression(OUTPUT_COMPRESSION);
         }
 
-        try {
-            return extractImageData(client.images().generate(params.build()));
-        } catch (OpenAIServiceException e) {
-            throw new OpenAIException(e.statusCode(),
-                    parseErrorMessage(e.body().toString(), e.statusCode()));
-        }
+        return extractImageData(client.images().generate(params.build()));
     }
 
     public byte[] editImage(String prompt, String size, List<byte[]> images,
@@ -122,14 +112,8 @@ public class OpenAIService {
                         .build());
             }
 
-            try {
-                return extractImageData(client.images().edit(paramsBuilder.build()));
-            } catch (OpenAIServiceException e) {
-                log.warn("editImage: HTTP {} raw body: {}", e.statusCode(), e.body());
-                throw new OpenAIException(e.statusCode(),
-                        parseErrorMessage(e.body().toString(), e.statusCode()));
-            }
-        } catch (OpenAIException e) {
+            return extractImageData(client.images().edit(paramsBuilder.build()));
+        } catch (OpenAIServiceException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to prepare image edit request: " + e.getMessage(), e);
@@ -174,52 +158,4 @@ public class OpenAIService {
         }
     }
 
-    /**
-     * Parses the OpenAI error response body and returns a human-readable message
-     * prefixed with a category tag consumed by the UI for styled display.
-     */
-    private String parseErrorMessage(String errorBody, int statusCode) {
-        try {
-            JsonNode root = objectMapper.readTree(errorBody);
-            JsonNode errorNode = root.path("error");
-            if (!errorNode.isMissingNode()) {
-                String code = errorNode.path("code").asText("");
-                String message = errorNode.path("message").asText("").trim();
-                String innermostMessage = errorNode.path("innererror")
-                        .path("message").asText("").trim();
-                String detail = innermostMessage.isEmpty() ? message : innermostMessage;
-
-                if ("contentFilter".equalsIgnoreCase(code)
-                        || "content_filter".equalsIgnoreCase(code)
-                        || detail.toLowerCase().contains("content filter")
-                        || detail.toLowerCase().contains("safety")) {
-                    return "[content_policy] " + (detail.isEmpty()
-                            ? "Your request was rejected by the content safety system. Try rephrasing your prompt."
-                            : detail);
-                }
-                if (statusCode == 429
-                        || "429".equals(code)
-                        || "RateLimitReached".equalsIgnoreCase(code)) {
-                    return "[rate_limit] " + (detail.isEmpty()
-                            ? "Rate limit reached. Please wait a moment and try again."
-                            : detail);
-                }
-                if (!detail.isEmpty()) {
-                    return detail;
-                }
-            }
-        } catch (Exception ignored) {
-            // fall through to status-based defaults
-        }
-
-        return switch (statusCode) {
-            case 400 -> "Bad request — check your prompt text and image inputs.";
-            case 401 -> "Authentication failed — API credentials may be misconfigured.";
-            case 403 -> "Access denied — the model or feature is not enabled for this endpoint.";
-            case 429 -> "[rate_limit] Rate limit reached. Please wait a moment and try again.";
-            case 500, 503 -> "The AI service returned a server error. Please try again shortly.";
-            default -> "API error " + statusCode + ": "
-                    + (errorBody.length() > 300 ? errorBody.substring(0, 300) + "…" : errorBody);
-        };
-    }
 }
