@@ -163,6 +163,20 @@
     <option value="webp">WebP (compressed)</option>
   </select>
 
+  <label>Number of images</label>
+  <select id="image-count">
+    <option value="1" selected>1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+    <option value="10">10</option>
+  </select>
+
   <label>Reference images <span style="color:#64748b;font-size:.8rem">(optional — up to 8; triggers edit mode)</span></label>
   <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
     <input type="file" id="file-input" accept="image/*" multiple>
@@ -301,6 +315,7 @@ async function startGeneration() {
   const previewMode = document.getElementById('preview-toggle').checked;
   formData.append('size', previewMode ? (PREVIEW_SIZES[baseSize] || baseSize) : baseSize);
   formData.append('outputFormat', document.getElementById('output-format').value);
+  formData.append('n', document.getElementById('image-count').value);
   for (const f of selectedFiles) formData.append('images', f);
   const maskBlob = exportMask();
   if (maskBlob) formData.append('mask', maskBlob, 'mask.png');
@@ -322,7 +337,8 @@ async function startGeneration() {
 
   startTime = Date.now();
   startElapsedTimer();
-  showStatus('running', 'Generating image…');
+  const imageCount = parseInt(document.getElementById('image-count').value, 10);
+  showStatus('running', imageCount > 1 ? `Generating ${imageCount} images…` : 'Generating image…');
   pollJob(jobId);
 }
 
@@ -337,7 +353,7 @@ function pollJob(jobId, networkFailures = 0) {
       if (job.status === 'completed') {
         stopTimers();
         setGeneratingUI(false);
-        showResult(job.imageName);
+        showResult(job.imageNames || []);
         return;
       }
       if (job.status === 'failed') {
@@ -429,17 +445,25 @@ function showError(type, msg, label) {
   </div>`;
 }
 
-function showResult(imageName) {
+function showResult(imageNames) {
   notifyImageReady();
   const area = document.getElementById('result-area');
   area.style.display = 'block';
-  area.innerHTML = `<div class="status-box" style="background:#0d2418;border-color:#166534;color:#86efac;margin-bottom:.8rem">
-    ✅ Image generated and saved.
-  </div>
-  <img src="/api/images/${encodeURIComponent(imageName)}" alt="generated image" style="max-width:100%;border-radius:10px;border:1px solid #2d3148">
-  <div class="img-actions" style="margin-top:.8rem">
-    <a class="btn btn-secondary" href="/api/images/${encodeURIComponent(imageName)}" download="${escAttr(imageName)}">⬇ Download</a>
+  const count = imageNames.length;
+  const heading = count === 1 ? '✅ Image generated and saved.' : `✅ ${count} images generated and saved.`;
+  let html = `<div class="status-box" style="background:#0d2418;border-color:#166534;color:#86efac;margin-bottom:.8rem">
+    ${heading}
   </div>`;
+  for (const name of imageNames) {
+    html += `<div style="margin-bottom:1.2rem">
+      <img src="/api/images/${encodeURIComponent(name)}" alt="generated image" style="max-width:100%;border-radius:10px;border:1px solid #2d3148">
+      <div class="img-actions" style="margin-top:.5rem">
+        <a class="btn btn-secondary" href="/api/images/${encodeURIComponent(name)}" download="${escAttr(name)}">⬇ Download</a>
+        <span style="color:#64748b;font-size:.8rem;margin-left:.5rem">${escHtml(name)}</span>
+      </div>
+    </div>`;
+  }
+  area.innerHTML = html;
   document.getElementById('status-area').style.display = 'none';
 }
 

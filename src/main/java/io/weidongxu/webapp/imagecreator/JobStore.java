@@ -2,6 +2,7 @@ package io.weidongxu.webapp.imagecreator;
 
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -20,8 +21,8 @@ public class JobStore {
         jobs.put(jobId, new JobStatus("running", null, null));
     }
 
-    public void setCompleted(String jobId, String imageName) {
-        jobs.put(jobId, new JobStatus("completed", imageName, null));
+    public void setCompleted(String jobId, List<String> imageNames) {
+        jobs.put(jobId, new JobStatus("completed", imageNames, null));
     }
 
     public void setFailed(String jobId, String error) {

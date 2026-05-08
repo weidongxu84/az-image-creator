@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -26,20 +27,24 @@ public class ImageGenerationService {
     @Async
     public void generateImage(String jobId, String prompt, String size,
                               List<byte[]> images, List<String> imageFilenames,
-                              byte[] mask, String outputFormat) {
+                              byte[] mask, String outputFormat, int n) {
         jobStore.setRunning(jobId);
         try {
-            byte[] imageData;
+            List<byte[]> imageDataList;
             if (images != null && !images.isEmpty()) {
-                log.info("Job {}: editing {} image(s), size={}, format={}", jobId, images.size(), size, outputFormat);
-                imageData = openAIService.editImage(prompt, size, images, imageFilenames, mask, outputFormat);
+                log.info("Job {}: editing {} image(s), size={}, format={}, n={}", jobId, images.size(), size, outputFormat, n);
+                imageDataList = openAIService.editImage(prompt, size, images, imageFilenames, mask, outputFormat, n);
             } else {
-                log.info("Job {}: generating new image, size={}, format={}", jobId, size, outputFormat);
-                imageData = openAIService.generateImage(prompt, size, outputFormat);
+                log.info("Job {}: generating new image, size={}, format={}, n={}", jobId, size, outputFormat, n);
+                imageDataList = openAIService.generateImage(prompt, size, outputFormat, n);
             }
-            String blobName = storageService.upload(imageData, prompt, outputFormat);
-            log.info("Job {}: completed, saved as {}", jobId, blobName);
-            jobStore.setCompleted(jobId, blobName);
+            List<String> blobNames = new ArrayList<>();
+            for (byte[] imageData : imageDataList) {
+                String blobName = storageService.upload(imageData, prompt, outputFormat);
+                blobNames.add(blobName);
+            }
+            log.info("Job {}: completed, saved {} image(s): {}", jobId, blobNames.size(), blobNames);
+            jobStore.setCompleted(jobId, blobNames);
 
         } catch (OpenAIServiceException e) {
             String userMessage = classifyOpenAIError(e);

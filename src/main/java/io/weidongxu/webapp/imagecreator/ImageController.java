@@ -35,8 +35,12 @@ public class ImageController {
             @RequestParam("prompt") String prompt,
             @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
             @RequestParam(name = "outputFormat", required = false, defaultValue = "jpeg") String outputFormat,
+            @RequestParam(name = "n", required = false, defaultValue = "1") int n,
             @RequestParam(name = "images", required = false) List<MultipartFile> images,
             @RequestParam(name = "mask", required = false) MultipartFile mask) throws IOException {
+
+        if (n < 1) n = 1;
+        if (n > 10) n = 10;
 
         // Read bytes eagerly in the HTTP request thread — MultipartFile temp files are
         // deleted when the request ends, so the @Async thread must not call getBytes() itself.
@@ -58,7 +62,7 @@ public class ImageController {
         byte[] maskBytes = (mask != null && !mask.isEmpty()) ? mask.getBytes() : null;
 
         String jobId = jobStore.createJob();
-        imageGenerationService.generateImage(jobId, prompt, size, imageBytes, imageFilenames, maskBytes, outputFormat);
+        imageGenerationService.generateImage(jobId, prompt, size, imageBytes, imageFilenames, maskBytes, outputFormat, n);
 
         log.info("Started job {} for prompt: {}", jobId, prompt.length() > 80
                 ? prompt.substring(0, 80) + "…" : prompt);

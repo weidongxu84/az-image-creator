@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -51,11 +52,11 @@ public class OpenAIService {
         this.client = builder.build();
     }
 
-    public byte[] generateImage(String prompt, String size, String outputFormat) {
+    public List<byte[]> generateImage(String prompt, String size, String outputFormat, int n) {
         var params = ImageGenerateParams.builder()
                 .prompt(prompt)
                 .model(deployment)
-                .n(1L)
+                .n((long) n)
                 .size(ImageGenerateParams.Size.of(size))
                 .quality(ImageGenerateParams.Quality.HIGH)
                 .outputFormat(ImageGenerateParams.OutputFormat.of(outputFormat));
@@ -64,16 +65,16 @@ public class OpenAIService {
             params.outputCompression(OUTPUT_COMPRESSION);
         }
 
-        return extractImageData(client.images().generate(params.build()));
+        return extractAllImageData(client.images().generate(params.build()));
     }
 
-    public byte[] editImage(String prompt, String size, List<byte[]> images,
-                            List<String> filenames, byte[] mask, String outputFormat) {
+    public List<byte[]> editImage(String prompt, String size, List<byte[]> images,
+                            List<String> filenames, byte[] mask, String outputFormat, int n) {
         try {
             var paramsBuilder = ImageEditParams.builder()
                     .prompt(prompt)
                     .model(deployment)
-                    .n(1L)
+                    .n((long) n)
                     .size(ImageEditParams.Size.of(size))
                     .quality(ImageEditParams.Quality.HIGH)
                     .inputFidelity(ImageEditParams.InputFidelity.HIGH)
@@ -112,7 +113,7 @@ public class OpenAIService {
                         .build());
             }
 
-            return extractImageData(client.images().edit(paramsBuilder.build()));
+            return extractAllImageData(client.images().edit(paramsBuilder.build()));
         } catch (OpenAIServiceException e) {
             throw e;
         } catch (Exception e) {
@@ -128,22 +129,27 @@ public class OpenAIService {
         return "image/jpeg";
     }
 
-    private byte[] extractImageData(ImagesResponse response) {
-        com.openai.models.images.Image image = response.data()
-                .orElseThrow(() -> new RuntimeException("No data in OpenAI response"))
-                .get(0);
-
-        Optional<String> b64 = image.b64Json();
-        if (b64.isPresent() && !b64.get().isEmpty()) {
-            return Base64.getDecoder().decode(b64.get());
+    private List<byte[]> extractAllImageData(ImagesResponse response) {
+        List<com.openai.models.images.Image> images = response.data()
+                .orElseThrow(() -> new RuntimeException("No data in OpenAI response"));
+        List<byte[]> results = new ArrayList<>();
+        for (com.openai.models.images.Image image : images) {
+            Optional<String> b64 = image.b64Json();
+            if (b64.isPresent() && !b64.get().isEmpty()) {
+                results.add(Base64.getDecoder().decode(b64.get()));
+                continue;
+            }
+            Optional<String> url = image.url();
+            if (url.isPresent() && !url.get().isEmpty()) {
+                results.add(downloadFromUrl(url.get()));
+                continue;
+            }
+            throw new RuntimeException("No image data in OpenAI response for one of the images");
         }
-
-        Optional<String> url = image.url();
-        if (url.isPresent() && !url.get().isEmpty()) {
-            return downloadFromUrl(url.get());
+        if (results.isEmpty()) {
+            throw new RuntimeException("No image data in OpenAI response");
         }
-
-        throw new RuntimeException("No image data in OpenAI response");
+        return results;
     }
 
     private boolean isCompressedFormat(String format) {
