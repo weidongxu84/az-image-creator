@@ -35,7 +35,8 @@ public class OpenAIService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAIService.class);
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final String API_VERSION = "2025-04-01-preview";
+    private static final String IMAGE_API_VERSION = "2025-04-01-preview";
+    private static final AzureOpenAIServiceVersion CHAT_API_VERSION = AzureOpenAIServiceVersion.getV2025_03_01_PREVIEW();
     private static final long OUTPUT_COMPRESSION = 95L;
     private static final String CHAT_SYSTEM_PROMPT = """
             You are an expert creative image consultant and prompt engineer.
@@ -63,35 +64,54 @@ public class OpenAIService {
 
     private final String deployment;
     private final String chatDeployment;
-    private final OpenAIClient managedIdentityClient;
-    private final OpenAIClient apiKeyFallbackClient;
+    private final OpenAIClient managedIdentityImageClient;
+    private final OpenAIClient managedIdentityChatClient;
+    private final OpenAIClient apiKeyFallbackImageClient;
+    private final OpenAIClient apiKeyFallbackChatClient;
 
     public OpenAIService(AppConfig config) {
         this.deployment = config.getOpenAIDeployment();
         this.chatDeployment = config.getOpenAIChatDeployment();
 
-        var managedBuilder = OpenAIOkHttpClient.builder()
+        var managedImageBuilder = OpenAIOkHttpClient.builder()
                 .baseUrl(config.getOpenAIEndpoint())
                 .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
-                .azureServiceVersion(AzureOpenAIServiceVersion.fromString(API_VERSION));
+                .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION));
+
+        var managedChatBuilder = OpenAIOkHttpClient.builder()
+                .baseUrl(config.getOpenAIEndpoint())
+                .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
+                .azureServiceVersion(CHAT_API_VERSION);
 
         TokenRequestContext ctx = new TokenRequestContext()
                 .addScopes("https://cognitiveservices.azure.com/.default");
-        managedBuilder.apiKey("none")
+        managedImageBuilder.apiKey("none")
                 .credential(BearerTokenCredential.create(
                         () -> config.getCredential().getToken(ctx).block().getToken()));
-        this.managedIdentityClient = managedBuilder.build();
+        this.managedIdentityImageClient = managedImageBuilder.build();
+
+        managedChatBuilder.apiKey("none")
+                .credential(BearerTokenCredential.create(
+                        () -> config.getCredential().getToken(ctx).block().getToken()));
+        this.managedIdentityChatClient = managedChatBuilder.build();
 
         String apiKey = config.getOpenAIApiKey();
         if (apiKey != null && !apiKey.isBlank()) {
-            this.apiKeyFallbackClient = OpenAIOkHttpClient.builder()
+            this.apiKeyFallbackImageClient = OpenAIOkHttpClient.builder()
                     .baseUrl(config.getOpenAIEndpoint())
                     .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
-                    .azureServiceVersion(AzureOpenAIServiceVersion.fromString(API_VERSION))
+                    .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
+                    .apiKey(apiKey)
+                    .build();
+            this.apiKeyFallbackChatClient = OpenAIOkHttpClient.builder()
+                    .baseUrl(config.getOpenAIEndpoint())
+                    .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
+                    .azureServiceVersion(CHAT_API_VERSION)
                     .apiKey(apiKey)
                     .build();
         } else {
-            this.apiKeyFallbackClient = null;
+            this.apiKeyFallbackImageClient = null;
+            this.apiKeyFallbackChatClient = null;
         }
     }
 
@@ -144,7 +164,8 @@ public class OpenAIService {
                         .inputOfResponse(inputItems)
                         .text(ChatOutput.class)
                         .build();
-                var response = executeWithPreferredAuth(c -> c.responses().create(params));
+                var response = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
+                        c -> c.responses().create(params));
                 List<ChatOutput> outputs = response.output().stream()
                         .flatMap(item -> item.message().stream())
                         .flatMap(messageItem -> messageItem.content().stream())
@@ -165,7 +186,8 @@ public class OpenAIService {
                         .instructions(CHAT_SYSTEM_PROMPT)
                         .inputOfResponse(inputItems)
                         .build();
-                var plainResponse = executeWithPreferredAuth(c -> c.responses().create(plainParams));
+                var plainResponse = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
+                        c -> c.responses().create(plainParams));
                 out = parseChatOutputFromText(extractOutputText(plainResponse));
             } catch (Exception e) {
                 log.warn("Structured chat parse failed; falling back to plain text parse: {}", e.getMessage());
@@ -174,7 +196,8 @@ public class OpenAIService {
                         .instructions(CHAT_SYSTEM_PROMPT)
                         .inputOfResponse(inputItems)
                         .build();
-                var plainResponse = executeWithPreferredAuth(c -> c.responses().create(plainParams));
+                var plainResponse = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
+                        c -> c.responses().create(plainParams));
                 out = parseChatOutputFromText(extractOutputText(plainResponse));
             }
 
@@ -214,7 +237,8 @@ public class OpenAIService {
             params.outputCompression(OUTPUT_COMPRESSION);
         }
 
-        return executeWithPreferredAuth(c -> extractAllImageData(c.images().generate(params.build())));
+        return executeWithPreferredAuth(managedIdentityImageClient, apiKeyFallbackImageClient,
+                c -> extractAllImageData(c.images().generate(params.build())));
     }
 
     public List<byte[]> editImage(String prompt, String size, List<byte[]> images,
@@ -262,7 +286,8 @@ public class OpenAIService {
                         .build());
             }
 
-            return executeWithPreferredAuth(c -> extractAllImageData(c.images().edit(paramsBuilder.build())));
+            return executeWithPreferredAuth(managedIdentityImageClient, apiKeyFallbackImageClient,
+                    c -> extractAllImageData(c.images().edit(paramsBuilder.build())));
         } catch (OpenAIServiceException e) {
             throw e;
         } catch (Exception e) {
@@ -390,17 +415,18 @@ public class OpenAIService {
         return false;
     }
 
-    private <T> T executeWithPreferredAuth(Function<OpenAIClient, T> request) {
+    private <T> T executeWithPreferredAuth(OpenAIClient primaryClient, OpenAIClient fallbackClient,
+                                           Function<OpenAIClient, T> request) {
         try {
-            return request.apply(managedIdentityClient);
+            return request.apply(primaryClient);
         } catch (OpenAIServiceException e) {
             boolean canFallback = (e.statusCode() == 401 || e.statusCode() == 403)
-                    && apiKeyFallbackClient != null;
+                    && fallbackClient != null;
             if (!canFallback) {
                 throw e;
             }
             log.warn("Managed identity auth failed (HTTP {}). Retrying with API key fallback.", e.statusCode());
-            return request.apply(apiKeyFallbackClient);
+            return request.apply(fallbackClient);
         }
     }
 
