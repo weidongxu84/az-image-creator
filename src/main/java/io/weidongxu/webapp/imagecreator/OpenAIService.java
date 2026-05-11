@@ -1,7 +1,6 @@
 package io.weidongxu.webapp.imagecreator;
 
 import com.azure.core.credential.TokenRequestContext;
-import com.openai.azure.AzureUrlPathMode;
 import com.openai.azure.AzureOpenAIServiceVersion;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
@@ -85,7 +84,6 @@ public class OpenAIService {
 
         var managedImageBuilder = OpenAIOkHttpClient.builder()
                 .baseUrl(endpoint)
-                .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
                 .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION));
 
         var managedChatBuilder = OpenAIOkHttpClient.builder()
@@ -107,7 +105,6 @@ public class OpenAIService {
         if (apiKey != null && !apiKey.isBlank()) {
             this.apiKeyFallbackImageClient = OpenAIOkHttpClient.builder()
                     .baseUrl(endpoint)
-                    .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
                     .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
                     .apiKey(apiKey)
                     .build();
