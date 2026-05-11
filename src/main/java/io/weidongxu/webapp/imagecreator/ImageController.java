@@ -114,8 +114,10 @@ public class ImageController {
         String detail = e.getMessage() == null || e.getMessage().isBlank()
                 ? "OpenAI API error"
                 : e.getMessage();
+        String code = safeOptional(e::code);
+        String type = safeOptional(e::type);
         log.warn("OpenAI API error HTTP {} code={} type={} message={}",
-                status, e.code().orElse(""), e.type().orElse(""), detail);
+                status, code, type, detail);
 
         String userMsg;
         if (status == 429) {
@@ -128,6 +130,20 @@ public class ImageController {
             userMsg = "Model request failed. Please retry.";
         }
         return ResponseEntity.status(502).body(Map.of("error", userMsg));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleUnexpected(Exception e) {
+        log.error("Unexpected API error", e);
+        return ResponseEntity.status(500).body(Map.of("error", "Internal Server Error"));
+    }
+
+    private String safeOptional(java.util.function.Supplier<java.util.Optional<String>> reader) {
+        try {
+            return reader.get().orElse("");
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     @GetMapping("/images")
