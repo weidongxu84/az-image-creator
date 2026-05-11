@@ -47,9 +47,13 @@ public class ImageGenerationService {
             jobStore.setCompleted(jobId, blobNames);
 
         } catch (OpenAIServiceException e) {
-            String userMessage = classifyOpenAIError(e);
+            int status = safeStatusCode(e);
+            String code = safeOptional(e::code);
+            String type = safeOptional(e::type);
+            String detail = safeMessage(e, status);
+            String userMessage = classifyOpenAIError(status, code, detail);
             log.warn("Job {}: OpenAI error HTTP {} code={} type={} message={}",
-                    jobId, e.statusCode(), e.code().orElse(""), e.type().orElse(""), e.getMessage());
+                    jobId, status, code, type, detail);
             jobStore.setFailed(jobId, userMessage);
         } catch (Exception e) {
             log.error("Job {}: unexpected error", jobId, e);
@@ -57,22 +61,45 @@ public class ImageGenerationService {
         }
     }
 
-    private String classifyOpenAIError(OpenAIServiceException e) {
-        String code = e.code().orElse("").toLowerCase();
-        int status = e.statusCode();
-        String message = e.getMessage();
-        String detail = (message != null && !message.isBlank()) ? message.trim()
-                : "API error " + status;
+    private String classifyOpenAIError(int status, String code, String detail) {
+        String normalizedCode = code == null ? "" : code.toLowerCase();
 
-        if ("moderation_blocked".equals(code)
-                || "contentfilter".equals(code)
-                || "content_filter".equals(code)
+        if ("moderation_blocked".equals(normalizedCode)
+                || "contentfilter".equals(normalizedCode)
+                || "content_filter".equals(normalizedCode)
                 || detail.toLowerCase().contains("safety")) {
             return "[content_policy] " + detail;
         }
-        if (status == 429 || "ratelimitreached".equals(code)) {
+        if (status == 429 || "ratelimitreached".equals(normalizedCode)) {
             return "[rate_limit] " + detail;
         }
         return detail;
+    }
+
+    private int safeStatusCode(OpenAIServiceException e) {
+        try {
+            return e.statusCode();
+        } catch (Exception ignored) {
+            return 500;
+        }
+    }
+
+    private String safeMessage(OpenAIServiceException e, int status) {
+        try {
+            String message = e.getMessage();
+            if (message != null && !message.isBlank()) {
+                return message.trim();
+            }
+        } catch (Exception ignored) {
+        }
+        return "API error " + status;
+    }
+
+    private String safeOptional(java.util.function.Supplier<java.util.Optional<String>> reader) {
+        try {
+            return reader.get().orElse("");
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 }
