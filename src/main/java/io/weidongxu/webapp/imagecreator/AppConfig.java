@@ -16,6 +16,7 @@ public class AppConfig {
     private final String personalToken;
     private final String openAIEndpoint;
     private final String openAIDeployment;
+    private final String openAIChatDeployment;
     private final String openAIApiKey;
     private final String storageAccountName;
     private final String storageContainerName;
@@ -30,6 +31,7 @@ public class AppConfig {
         openAIEndpoint = Objects.requireNonNull(config.get("AZURE_OPENAI_ENDPOINT"),
                 "AZURE_OPENAI_ENDPOINT must be set");
         openAIDeployment = config.get("AZURE_OPENAI_DEPLOYMENT", "gpt-image-2");
+        openAIChatDeployment = config.get("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5.4");
         openAIApiKey = config.get("AZURE_OPENAI_IMAGE_API_KEY"); // optional: falls back to managed identity
 
         storageAccountName = Objects.requireNonNull(config.get("STORAGE_ACCOUNT_NAME"),
@@ -46,6 +48,7 @@ public class AppConfig {
     public String getPersonalToken() { return personalToken; }
     public String getOpenAIEndpoint() { return openAIEndpoint; }
     public String getOpenAIDeployment() { return openAIDeployment; }
+    public String getOpenAIChatDeployment() { return openAIChatDeployment; }
     public String getOpenAIApiKey() { return openAIApiKey; }
     public String getStorageAccountName() { return storageAccountName; }
     public String getStorageContainerName() { return storageContainerName; }

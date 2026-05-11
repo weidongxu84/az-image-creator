@@ -30,6 +30,9 @@ public class ImageController {
     @Autowired
     private StorageService storageService;
 
+    @Autowired
+    private OpenAIService openAIService;
+
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> generate(
             @RequestParam("prompt") String prompt,
@@ -76,6 +79,32 @@ public class ImageController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(status);
+    }
+
+    @PostMapping(value = "/chat", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ChatResponsePayload> chat(
+            @RequestParam("message") String message,
+            @RequestPart(name = "history", required = false) List<ChatTurn> history,
+            @RequestParam(name = "image", required = false) MultipartFile image) throws IOException {
+
+        if (message == null || message.isBlank()) {
+            return ResponseEntity.badRequest().body(new ChatResponsePayload(
+                    "Please provide a message.", "NONE", List.of(), "", false));
+        }
+
+        if (history == null) {
+            history = List.of();
+        }
+
+        if (history.size() > 40) {
+            history = history.subList(history.size() - 40, history.size());
+        }
+
+        byte[] imageBytes = (image != null && !image.isEmpty()) ? image.getBytes() : null;
+        String imageFilename = (image != null) ? image.getOriginalFilename() : null;
+
+        ChatResponsePayload response = openAIService.chat(message, history, imageBytes, imageFilename);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/images")

@@ -108,6 +108,48 @@
   /* Empty / loading state */
   .empty-state { text-align: center; color: #64748b; padding: 3rem; }
 
+  /* Chat tab */
+  .chat-wrap { max-width: 900px; margin: 0 auto; }
+  .chat-thread {
+    background: #121622; border: 1px solid #2d3148; border-radius: 12px;
+    min-height: 360px; max-height: 58vh; overflow: auto; padding: 1rem;
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .chat-empty { color: #64748b; text-align: center; padding: 2rem .5rem; font-size: .9rem; }
+  .chat-msg {
+    border: 1px solid #2d3148; border-radius: 10px; padding: .75rem .9rem;
+    background: #1a1d27;
+  }
+  .chat-msg.user { background: #1d2638; border-color: #2d3e61; }
+  .chat-msg.assistant { background: #1a1d27; }
+  .chat-meta { font-size: .75rem; color: #94a3b8; margin-bottom: .35rem; }
+  .chat-content { white-space: pre-wrap; line-height: 1.45; font-size: .92rem; }
+  .chat-summary {
+    margin-top: .55rem; padding: .6rem .7rem; border: 1px solid #36506f;
+    border-radius: 8px; background: #132235;
+  }
+  .chat-summary h4 { font-size: .78rem; color: #93c5fd; margin-bottom: .35rem; }
+  .chat-summary p { font-size: .85rem; color: #bfdbfe; white-space: pre-wrap; }
+  .chat-summary ul { margin: .3rem 0 0 1.1rem; color: #bfdbfe; font-size: .84rem; }
+  .chat-summary .prompt-tip {
+    margin-top: .45rem; font-size: .84rem; color: #dbeafe;
+    background: rgba(191, 219, 254, .08); border: 1px dashed #4b7499;
+    border-radius: 6px; padding: .45rem .55rem;
+  }
+  .chat-controls { margin-top: 1rem; display: grid; gap: .7rem; }
+  .chat-row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .chat-image-chip {
+    background: #252840; border: 1px solid #2d3148; border-radius: 999px;
+    padding: .25rem .7rem; font-size: .78rem; color: #cbd5e1; display: inline-flex; gap: .5rem; align-items: center;
+  }
+  .chat-image-chip button { background: none; border: none; color: #94a3b8; cursor: pointer; }
+  .chat-image-chip button:hover { color: #f87171; }
+
+  @media (max-width: 700px) {
+    .chat-thread { max-height: 50vh; }
+    .chat-row .btn { flex: 1; justify-content: center; }
+  }
+
   /* Modal */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 1000;
@@ -134,6 +176,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('generate')">✨ Generate</button>
   <button class="tab-btn" onclick="switchTab('browse')">🖼 Browse</button>
+  <button class="tab-btn" onclick="switchTab('chat')">💬 Chat</button>
 </div>
 
 <!-- ─────────── GENERATE TAB ─────────── -->
@@ -215,6 +258,33 @@
     <span id="browse-count" style="color:#64748b;font-size:.85rem"></span>
   </div>
   <div id="image-grid" class="image-grid"></div>
+
+</div>
+
+<!-- ─────────── CHAT TAB ─────────── -->
+<div id="tab-chat" class="tab-panel">
+
+  <div class="chat-wrap">
+    <div id="chat-thread" class="chat-thread">
+      <div class="chat-empty">Ask for critique, improvements, and prompt ideas. Attach an image when needed.</div>
+    </div>
+
+    <div class="chat-controls">
+      <div class="chat-row">
+        <button class="btn btn-secondary" onclick="document.getElementById('chat-image-input').click()">🖼 Attach image</button>
+        <input type="file" id="chat-image-input" accept="image/*" style="display:none">
+        <div id="chat-image-chip" style="display:none"></div>
+      </div>
+
+      <label style="margin:0">Message</label>
+      <textarea id="chat-input" rows="3" placeholder="Ask for critique, improvement actions, or a better prompt..."></textarea>
+
+      <div class="chat-row">
+        <button class="btn btn-primary" id="chat-send-btn" onclick="sendChat()">Send</button>
+        <button class="btn btn-secondary" onclick="clearChatLocal()">Clear chat</button>
+      </div>
+    </div>
+  </div>
 
 </div>
 
@@ -733,6 +803,140 @@ function dataURLtoBlob(dataURL) {
   const arr = new Uint8Array(bytes.length);
   for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
   return new Blob([arr], { type: mime });
+}
+
+// ─── Chat tab ─────────────────────────────────────────────────────────────────
+const chatTurns = [];
+let chatPendingImage = null;
+
+document.getElementById('chat-image-input').addEventListener('change', function() {
+  const f = this.files && this.files[0] ? this.files[0] : null;
+  if (f && f.type.startsWith('image/')) {
+    chatPendingImage = f;
+    renderChatImageChip();
+  }
+  this.value = '';
+});
+
+function renderChatImageChip() {
+  const host = document.getElementById('chat-image-chip');
+  if (!chatPendingImage) {
+    host.style.display = 'none';
+    host.innerHTML = '';
+    return;
+  }
+  host.style.display = 'block';
+  host.innerHTML = `<span class="chat-image-chip">${escHtml(chatPendingImage.name)} <button onclick="removeChatImage()" title="Remove">×</button></span>`;
+}
+
+function removeChatImage() {
+  chatPendingImage = null;
+  renderChatImageChip();
+}
+
+function clearChatLocal() {
+  chatTurns.length = 0;
+  chatPendingImage = null;
+  renderChatImageChip();
+  renderChatThread();
+}
+
+function renderChatThread() {
+  const host = document.getElementById('chat-thread');
+  if (!chatTurns.length) {
+    host.innerHTML = '<div class="chat-empty">Ask for critique, improvements, and prompt ideas. Attach an image when needed.</div>';
+    return;
+  }
+  host.innerHTML = chatTurns.map(t => {
+    const isUser = t.role === 'user';
+    const summary = (!isUser && t.imageSummary && t.imageSummary !== 'NONE')
+      ? `<div class="chat-summary"><h4>Image Summary</h4><p>${escHtml(t.imageSummary)}</p>${renderImprovementActions(t.improvementActions)}${renderBestPrompt(t.bestPromptCandidate)}</div>`
+      : '';
+    const attached = isUser && t.hasImage ? '<div class="chat-meta" style="margin-top:.35rem">Image attached</div>' : '';
+    return `<div class="chat-msg ${isUser ? 'user' : 'assistant'}">
+      <div class="chat-meta">${isUser ? 'You' : 'Assistant'}</div>
+      <div class="chat-content">${escHtml(t.content)}</div>
+      ${attached}
+      ${summary}
+    </div>`;
+  }).join('');
+  host.scrollTop = host.scrollHeight;
+}
+
+function renderImprovementActions(actions) {
+  if (!actions || !actions.length) return '';
+  const lis = actions.map(a => `<li>${escHtml(a)}</li>`).join('');
+  return `<ul>${lis}</ul>`;
+}
+
+function renderBestPrompt(bestPrompt) {
+  if (!bestPrompt) return '';
+  return `<div class="prompt-tip"><strong>Prompt candidate:</strong> ${escHtml(bestPrompt)}</div>`;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send-btn');
+  const message = input.value.trim();
+  if (!message) {
+    alert('Please enter a message.');
+    return;
+  }
+
+  const history = chatTurns.map(t => ({
+    role: t.role,
+    content: t.content,
+    imageSummary: t.imageSummary || null
+  }));
+
+  const userTurn = {
+    role: 'user',
+    content: message,
+    hasImage: !!chatPendingImage,
+    imageSummary: null
+  };
+  chatTurns.push(userTurn);
+  renderChatThread();
+
+  input.value = '';
+  sendBtn.disabled = true;
+
+  const form = new FormData();
+  form.append('message', message);
+  form.append('history', new Blob([JSON.stringify(history)], { type: 'application/json' }));
+  if (chatPendingImage) {
+    form.append('image', chatPendingImage, chatPendingImage.name || 'chat-image.jpg');
+  }
+
+  try {
+    const res = await apiFetch('/api/chat', { method: 'POST', body: form });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => 'Unknown error');
+      throw new Error('HTTP ' + res.status + ': ' + txt);
+    }
+    const data = await res.json();
+    chatTurns.push({
+      role: 'assistant',
+      content: data.assistantReply || '(No response)',
+      imageSummary: data.imageSummary || 'NONE',
+      improvementActions: Array.isArray(data.improvementActions) ? data.improvementActions : [],
+      bestPromptCandidate: data.bestPromptCandidate || ''
+    });
+    renderChatThread();
+  } catch (e) {
+    chatTurns.push({
+      role: 'assistant',
+      content: 'Chat failed: ' + e.message,
+      imageSummary: 'NONE',
+      improvementActions: [],
+      bestPromptCandidate: ''
+    });
+    renderChatThread();
+  } finally {
+    chatPendingImage = null;
+    renderChatImageChip();
+    sendBtn.disabled = false;
+  }
 }
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
