@@ -36,7 +36,6 @@ public class OpenAIService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAIService.class);
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String IMAGE_API_VERSION = "2025-04-01-preview";
-    private static final AzureOpenAIServiceVersion CHAT_API_VERSION = AzureOpenAIServiceVersion.getV2025_03_01_PREVIEW();
     private static final long OUTPUT_COMPRESSION = 95L;
     private static final String CHAT_SYSTEM_PROMPT = """
             You are an expert creative image consultant and prompt engineer.
@@ -80,8 +79,7 @@ public class OpenAIService {
 
         var managedChatBuilder = OpenAIOkHttpClient.builder()
                 .baseUrl(config.getOpenAIEndpoint())
-                .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
-                .azureServiceVersion(CHAT_API_VERSION);
+                .azureUrlPathMode(AzureUrlPathMode.UNIFIED);
 
         TokenRequestContext ctx = new TokenRequestContext()
                 .addScopes("https://cognitiveservices.azure.com/.default");
@@ -106,7 +104,6 @@ public class OpenAIService {
             this.apiKeyFallbackChatClient = OpenAIOkHttpClient.builder()
                     .baseUrl(config.getOpenAIEndpoint())
                     .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
-                    .azureServiceVersion(CHAT_API_VERSION)
                     .apiKey(apiKey)
                     .build();
         } else {
