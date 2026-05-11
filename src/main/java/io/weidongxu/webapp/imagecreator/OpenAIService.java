@@ -92,15 +92,17 @@ public class OpenAIService {
     public OpenAIService(AppConfig config) {
         this.deployment = config.getOpenAIDeployment();
         this.chatDeployment = config.getOpenAIChatDeployment();
+        String endpoint = config.getOpenAIEndpoint();
+        String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
+        String chatBaseUrl = trimmedEndpoint + "/openai/v1";
 
         var managedImageBuilder = OpenAIOkHttpClient.builder()
-                .baseUrl(config.getOpenAIEndpoint())
+                .baseUrl(endpoint)
                 .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
                 .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION));
 
         var managedChatBuilder = OpenAIOkHttpClient.builder()
-                .baseUrl(config.getOpenAIEndpoint())
-                .azureUrlPathMode(AzureUrlPathMode.UNIFIED);
+                .baseUrl(chatBaseUrl);
 
         TokenRequestContext ctx = new TokenRequestContext()
                 .addScopes("https://cognitiveservices.azure.com/.default");
@@ -117,14 +119,13 @@ public class OpenAIService {
         String apiKey = config.getOpenAIApiKey();
         if (apiKey != null && !apiKey.isBlank()) {
             this.apiKeyFallbackImageClient = OpenAIOkHttpClient.builder()
-                    .baseUrl(config.getOpenAIEndpoint())
+                    .baseUrl(endpoint)
                     .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
                     .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
                     .apiKey(apiKey)
                     .build();
             this.apiKeyFallbackChatClient = OpenAIOkHttpClient.builder()
-                    .baseUrl(config.getOpenAIEndpoint())
-                    .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
+                    .baseUrl(chatBaseUrl)
                     .apiKey(apiKey)
                     .build();
         } else {
