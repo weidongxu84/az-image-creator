@@ -138,6 +138,12 @@
   }
   .chat-controls { margin-top: 1rem; display: grid; gap: .7rem; }
   .chat-row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .chat-drop-zone {
+    width: 100%; padding: .8rem 1rem; font-size: .84rem; color: #64748b;
+  }
+  .chat-drop-zone.has-file {
+    border-style: solid; border-color: #4b7499; color: #bfdbfe; background: #132235;
+  }
   .chat-image-chip {
     background: #252840; border: 1px solid #2d3148; border-radius: 999px;
     padding: .25rem .7rem; font-size: .78rem; color: #cbd5e1; display: inline-flex; gap: .5rem; align-items: center;
@@ -274,6 +280,10 @@
         <button class="btn btn-secondary" onclick="document.getElementById('chat-image-input').click()">🖼 Attach image</button>
         <input type="file" id="chat-image-input" accept="image/*" style="display:none">
         <div id="chat-image-chip" style="display:none"></div>
+      </div>
+
+      <div class="drop-zone chat-drop-zone" id="chat-drop-zone" onclick="document.getElementById('chat-image-input').click()">
+        <span id="chat-drop-zone-label">Click or drag an image here</span>
       </div>
 
       <label style="margin:0">Message</label>
@@ -811,21 +821,39 @@ let chatPendingImage = null;
 
 document.getElementById('chat-image-input').addEventListener('change', function() {
   const f = this.files && this.files[0] ? this.files[0] : null;
-  if (f && f.type.startsWith('image/')) {
-    chatPendingImage = f;
-    renderChatImageChip();
-  }
+  addChatImageFiles(f ? [f] : []);
   this.value = '';
 });
 
+const chatDropZone = document.getElementById('chat-drop-zone');
+chatDropZone.addEventListener('dragover', e => { e.preventDefault(); chatDropZone.classList.add('drag-over'); });
+chatDropZone.addEventListener('dragleave', () => chatDropZone.classList.remove('drag-over'));
+chatDropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  chatDropZone.classList.remove('drag-over');
+  addChatImageFiles(Array.from((e.dataTransfer && e.dataTransfer.files) || []));
+});
+
+function addChatImageFiles(files) {
+  const img = files.find(f => f && f.type && f.type.startsWith('image/'));
+  if (!img) return;
+  chatPendingImage = img;
+  renderChatImageChip();
+}
+
 function renderChatImageChip() {
   const host = document.getElementById('chat-image-chip');
+  const dropLabel = document.getElementById('chat-drop-zone-label');
+  const hasFile = !!chatPendingImage;
+  chatDropZone.classList.toggle('has-file', hasFile);
   if (!chatPendingImage) {
     host.style.display = 'none';
     host.innerHTML = '';
+    dropLabel.textContent = 'Click or drag an image here';
     return;
   }
   host.style.display = 'block';
+  dropLabel.textContent = 'Image ready. Click or drop another image to replace it';
   host.innerHTML = `<span class="chat-image-chip">${escHtml(chatPendingImage.name)} <button onclick="removeChatImage()" title="Remove">×</button></span>`;
 }
 

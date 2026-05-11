@@ -1,9 +1,6 @@
 package io.weidongxu.webapp.imagecreator;
 
 import com.azure.core.credential.TokenRequestContext;
-import com.azure.core.credential.TokenCredential;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.openai.azure.AzureUrlPathMode;
 import com.openai.azure.AzureOpenAIServiceVersion;
 import com.openai.client.OpenAIClient;
@@ -11,6 +8,11 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.credential.BearerTokenCredential;
 import com.openai.errors.OpenAIServiceException;
 import com.openai.core.MultipartField;
+import com.openai.models.responses.EasyInputMessage;
+import com.openai.models.responses.ResponseCreateParams;
+import com.openai.models.responses.ResponseInputImage;
+import com.openai.models.responses.ResponseInputItem;
+import com.openai.models.responses.StructuredResponseCreateParams;
 import com.openai.models.images.ImageEditParams;
 import com.openai.models.images.ImageEditParams.Image;
 import com.openai.models.images.ImageGenerateParams;
@@ -20,14 +22,9 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -36,59 +33,63 @@ import java.util.stream.Collectors;
 public class OpenAIService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAIService.class);
-    private static final ObjectMapper JSON = new ObjectMapper();
     private static final String IMAGE_API_VERSION = "2025-04-01-preview";
     private static final long OUTPUT_COMPRESSION = 95L;
-    private static final String CHAT_SYSTEM_PROMPT_PLAIN = """
+    private static final String CHAT_SYSTEM_PROMPT_JSON = """
             You are an expert creative image consultant and prompt engineer.
 
             Answer the user naturally and helpfully. If the current user turn contains an image,
             include practical critique and concrete improvement advice.
 
-            Return this exact plain-text format (no markdown fences):
+            You MUST output valid JSON with this exact schema:
+            {
+              "assistant_reply": "string",
+              "image_summary": "string",
+              "improvement_actions": ["string", "..."],
+              "best_prompt_candidate": "string"
+            }
 
-            ASSISTANT_REPLY:
-            <your user-facing response>
-
-            IMAGE_SUMMARY:
-            <compact reusable summary, or NONE if no image in the current turn>
-
-            IMPROVEMENT_ACTIONS:
-            - <action 1>
-            - <action 2>
-
-            BEST_PROMPT_CANDIDATE:
-            <single gpt-image-2 EDIT prompt for the uploaded image, or empty if no image>
-
-            Additional rules:
+            Rules:
+            - Always return all fields.
+            - If no image is provided in the current turn, set image_summary to "NONE",
+              improvement_actions to an empty array, and best_prompt_candidate to "".
+            - If an image is provided, best_prompt_candidate must be a single prompt for gpt-image-2
+              to EDIT the uploaded image (image-to-image), not to generate a brand new image.
             - Preserve original subject/composition unless user asks to change them.
+            - Do not wrap JSON in markdown fences.
+            """;
+
+    private static final String CHAT_SYSTEM_PROMPT_FALLBACK = """
+            You are an expert creative image consultant and prompt engineer.
+
+            Answer the user naturally and helpfully.
+            If the current user turn contains an image, include practical critique
+            and concrete improvement advice.
             """;
 
     private final String deployment;
     private final String chatDeployment;
-    private final String chatResponsesUrl;
-    private final String configuredApiKey;
-    private final TokenCredential tokenCredential;
-    private final ChatResponseParser chatResponseParser;
+    private final ChatResponseMapper chatResponseMapper;
     private final OpenAIClient managedIdentityImageClient;
+    private final OpenAIClient managedIdentityChatClient;
     private final OpenAIClient apiKeyFallbackImageClient;
-    private final HttpClient httpClient;
+    private final OpenAIClient apiKeyFallbackChatClient;
 
-    public OpenAIService(AppConfig config, ChatResponseParser chatResponseParser) {
+    public OpenAIService(AppConfig config, ChatResponseMapper chatResponseMapper) {
         this.deployment = config.getOpenAIDeployment();
         this.chatDeployment = config.getOpenAIChatDeployment();
         String endpoint = config.getOpenAIEndpoint();
         String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
-        this.chatResponsesUrl = trimmedEndpoint + "/openai/v1/responses";
-        this.configuredApiKey = config.getOpenAIApiKey();
-        this.tokenCredential = config.getCredential();
-        this.chatResponseParser = chatResponseParser;
-        this.httpClient = HttpClient.newBuilder().build();
+        this.chatResponseMapper = chatResponseMapper;
+        String chatBaseUrl = trimmedEndpoint + "/openai/v1";
 
         var managedImageBuilder = OpenAIOkHttpClient.builder()
                 .baseUrl(endpoint)
                 .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
                 .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION));
+
+        var managedChatBuilder = OpenAIOkHttpClient.builder()
+                .baseUrl(chatBaseUrl);
 
         TokenRequestContext ctx = new TokenRequestContext()
                 .addScopes("https://cognitiveservices.azure.com/.default");
@@ -96,6 +97,11 @@ public class OpenAIService {
                 .credential(BearerTokenCredential.create(
                         () -> config.getCredential().getToken(ctx).block().getToken()));
         this.managedIdentityImageClient = managedImageBuilder.build();
+
+        managedChatBuilder.apiKey("none")
+                .credential(BearerTokenCredential.create(
+                        () -> config.getCredential().getToken(ctx).block().getToken()));
+        this.managedIdentityChatClient = managedChatBuilder.build();
 
         String apiKey = config.getOpenAIApiKey();
         if (apiKey != null && !apiKey.isBlank()) {
@@ -105,14 +111,19 @@ public class OpenAIService {
                     .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
                     .apiKey(apiKey)
                     .build();
+            this.apiKeyFallbackChatClient = OpenAIOkHttpClient.builder()
+                    .baseUrl(chatBaseUrl)
+                    .apiKey(apiKey)
+                    .build();
         } else {
             this.apiKeyFallbackImageClient = null;
+            this.apiKeyFallbackChatClient = null;
         }
     }
 
     public ChatResponsePayload chat(String message, List<ChatTurn> history, byte[] imageBytes, String imageFilename) {
         try {
-            List<Map<String, Object>> inputItems = new ArrayList<>();
+            List<ResponseInputItem> inputItems = new ArrayList<>();
 
             for (ChatTurn turn : history) {
                 if (turn == null || turn.role() == null || turn.content() == null || turn.content().isBlank()) {
@@ -129,139 +140,34 @@ public class OpenAIService {
                     combined = combined + "\n\n[IMAGE_SUMMARY]\n" + turn.imageSummary().trim();
                 }
 
-                Map<String, Object> msg = new HashMap<>();
-                msg.put("role", role);
-                msg.put("content", combined);
-                inputItems.add(msg);
+                inputItems.add(ResponseInputItem.ofEasyInputMessage(EasyInputMessage.builder()
+                        .role("assistant".equals(role) ? EasyInputMessage.Role.ASSISTANT : EasyInputMessage.Role.USER)
+                        .content(combined)
+                        .build()));
             }
 
             boolean usedImage = imageBytes != null && imageBytes.length > 0;
-            Map<String, Object> currentMessage = new HashMap<>();
-            currentMessage.put("role", "user");
+            var currentMessage = ResponseInputItem.Message.builder()
+                    .role(ResponseInputItem.Message.Role.USER)
+                    .addInputTextContent(message);
+
             if (usedImage) {
                 String mime = contentTypeFromFilename(imageFilename);
                 String dataUrl = "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(imageBytes);
-                List<Map<String, Object>> content = new ArrayList<>();
-                Map<String, Object> textPart = new HashMap<>();
-                textPart.put("type", "input_text");
-                textPart.put("text", message);
-                content.add(textPart);
-                Map<String, Object> imagePart = new HashMap<>();
-                imagePart.put("type", "input_image");
-                imagePart.put("image_url", dataUrl);
-                content.add(imagePart);
-                currentMessage.put("content", content);
-            } else {
-                currentMessage.put("content", message);
+                currentMessage.addContent(ResponseInputImage.builder()
+                        .detail(ResponseInputImage.Detail.AUTO)
+                        .imageUrl(dataUrl)
+                        .build());
             }
-            inputItems.add(currentMessage);
+            inputItems.add(ResponseInputItem.ofMessage(currentMessage.build()));
 
-            String plainText = callChatResponsesApi(inputItems);
-            log.info("Plain chat output: {}", plainText.length() > 800 ? plainText.substring(0, 800) : plainText);
-            ChatOutput out = chatResponseParser.parse(plainText);
-
-            String assistantReply = safe(out.assistant_reply);
-            String imageSummary = safe(out.image_summary);
-            List<String> actions = out.improvement_actions == null ? List.of()
-                    : out.improvement_actions.stream()
-                    .filter(s -> s != null && !s.isBlank())
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-            String bestPrompt = safe(out.best_prompt_candidate);
-
-            if (!usedImage) {
-                imageSummary = "NONE";
-                actions = List.of();
-                bestPrompt = "";
-            }
-
-            return new ChatResponsePayload(assistantReply, imageSummary, actions, bestPrompt, usedImage);
+            ChatOutput out = callStructuredChat(inputItems, usedImage);
+            return chatResponseMapper.toPayload(out, usedImage);
         } catch (OpenAIServiceException e) {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Chat request failed: " + e.getMessage(), e);
         }
-    }
-
-    private String callChatResponsesApi(List<Map<String, Object>> inputItems) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("model", chatDeployment);
-        body.put("instructions", CHAT_SYSTEM_PROMPT_PLAIN);
-        body.put("input", inputItems);
-
-        String bodyJson;
-        try {
-            bodyJson = JSON.writeValueAsString(body);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize chat request", e);
-        }
-
-        try {
-            String bearer = tokenCredential.getToken(new TokenRequestContext()
-                            .addScopes("https://cognitiveservices.azure.com/.default"))
-                    .block().getToken();
-            return sendChatHttp(bodyJson, "Authorization", "Bearer " + bearer);
-        } catch (Exception e) {
-            if (configuredApiKey == null || configuredApiKey.isBlank()) {
-                throw new RuntimeException("Managed identity chat auth failed and no API key fallback configured", e);
-            }
-            log.warn("Managed identity chat auth failed. Retrying chat with API key fallback.");
-            return sendChatHttp(bodyJson, "api-key", configuredApiKey);
-        }
-    }
-
-    private String sendChatHttp(String bodyJson, String authHeader, String authValue) {
-        try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(chatResponsesUrl))
-                    .header("Content-Type", "application/json")
-                    .header(authHeader, authValue)
-                    .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() / 100 != 2) {
-                String msg = response.body();
-                try {
-                    JsonNode err = JSON.readTree(response.body()).path("error");
-                    String detail = err.path("message").asText();
-                    if (detail != null && !detail.isBlank()) {
-                        msg = detail;
-                    }
-                } catch (Exception ignored) {
-                }
-                throw new RuntimeException("HTTP " + response.statusCode() + ": " + msg);
-            }
-
-            JsonNode root = JSON.readTree(response.body());
-            String outputText = extractOutputTextFromResponsesJson(root);
-            if (outputText.isBlank()) {
-                throw new RuntimeException("No text output in chat response");
-            }
-            return outputText;
-        } catch (RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new RuntimeException("Chat HTTP request failed", e);
-        }
-    }
-
-    private String extractOutputTextFromResponsesJson(JsonNode root) {
-        StringBuilder sb = new StringBuilder();
-        JsonNode output = root.path("output");
-        if (output.isArray()) {
-            for (JsonNode item : output) {
-                if (!"message".equals(item.path("type").asText())) continue;
-                JsonNode content = item.path("content");
-                if (!content.isArray()) continue;
-                for (JsonNode part : content) {
-                    if ("output_text".equals(part.path("type").asText())) {
-                        if (sb.length() > 0) sb.append('\n');
-                        sb.append(part.path("text").asText(""));
-                    }
-                }
-            }
-        }
-        return sb.toString().trim();
     }
 
     public List<byte[]> generateImage(String prompt, String size, String outputFormat, int n) {
@@ -370,8 +276,78 @@ public class OpenAIService {
         return "jpeg".equalsIgnoreCase(format) || "webp".equalsIgnoreCase(format);
     }
 
-    private String safe(String value) {
-        return value == null ? "" : value.trim();
+    private ChatOutput callStructuredChat(List<ResponseInputItem> inputItems, boolean usedImage) {
+        try {
+            StructuredResponseCreateParams<ChatOutput> params = ResponseCreateParams.builder()
+                    .model(chatDeployment)
+                    .instructions(CHAT_SYSTEM_PROMPT_JSON)
+                    .inputOfResponse(inputItems)
+                    .text(ChatOutput.class)
+                    .build();
+            var response = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
+                    c -> c.responses().create(params));
+
+            List<ChatOutput> outputs = response.output().stream()
+                    .flatMap(item -> item.message().stream())
+                    .flatMap(message -> message.content().stream())
+                    .flatMap(content -> content.outputText().stream())
+                    .collect(Collectors.toList());
+            if (!outputs.isEmpty()) {
+                return outputs.get(outputs.size() - 1);
+            }
+
+            log.warn("Structured response missing parsed output; using text fallback.");
+            return callRawTextFallback(inputItems, usedImage);
+        } catch (OpenAIServiceException e) {
+            if (!shouldFallbackToRawText(e)) {
+                throw e;
+            }
+            log.warn("Structured chat unsupported/rejected; using text fallback. HTTP {}", e.statusCode());
+            return callRawTextFallback(inputItems, usedImage);
+        } catch (Exception e) {
+            log.warn("Structured chat parse failed; using text fallback: {}", e.getMessage());
+            return callRawTextFallback(inputItems, usedImage);
+        }
+    }
+
+    private ChatOutput callRawTextFallback(List<ResponseInputItem> inputItems, boolean usedImage) {
+        var params = ResponseCreateParams.builder()
+                .model(chatDeployment)
+                .instructions(CHAT_SYSTEM_PROMPT_FALLBACK)
+                .inputOfResponse(inputItems)
+                .build();
+        var response = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
+                c -> c.responses().create(params));
+        String text = extractOutputText(response);
+        return chatResponseMapper.fromRawTextFallback(text, usedImage);
+    }
+
+    private boolean shouldFallbackToRawText(OpenAIServiceException e) {
+        int status = e.statusCode();
+        String msg = e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+        if (status == 400 || status == 404 || status == 422) {
+            return msg.contains("response_format")
+                    || msg.contains("json schema")
+                    || msg.contains("structured")
+                    || msg.contains("text.format")
+                    || msg.contains("invalid type for 'text'")
+                    || msg.contains("unsupported");
+        }
+        return false;
+    }
+
+    private String extractOutputText(com.openai.models.responses.Response response) {
+        String text = response.output().stream()
+                .flatMap(item -> item.message().stream())
+                .flatMap(message -> message.content().stream())
+                .flatMap(content -> content.outputText().stream())
+                .map(t -> t.text())
+                .collect(Collectors.joining("\n"))
+                .trim();
+        if (!text.isBlank()) {
+            return text;
+        }
+        return "Sorry, I could not parse the model output.";
     }
 
     private <T> T executeWithPreferredAuth(OpenAIClient primaryClient, OpenAIClient fallbackClient,
