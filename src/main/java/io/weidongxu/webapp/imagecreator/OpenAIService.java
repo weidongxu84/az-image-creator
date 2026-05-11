@@ -60,6 +60,27 @@ public class OpenAIService {
             - Put user-facing explanation and recommendations in assistant_reply.
             - Do not wrap JSON in markdown fences.
             """;
+    private static final String CHAT_SYSTEM_PROMPT_PLAIN = """
+            You are an expert creative image consultant and prompt engineer.
+
+            Answer the user naturally and helpfully. If the current user turn contains an image,
+            include practical critique and concrete improvement advice.
+
+            Return this exact plain-text format (no markdown fences):
+
+            ASSISTANT_REPLY:
+            <your user-facing response>
+
+            IMAGE_SUMMARY:
+            <compact reusable summary, or NONE if no image in the current turn>
+
+            IMPROVEMENT_ACTIONS:
+            - <action 1>
+            - <action 2>
+
+            BEST_PROMPT_CANDIDATE:
+            <single improved prompt, or empty if no image>
+            """;
 
     private final String deployment;
     private final String chatDeployment;
@@ -180,22 +201,26 @@ public class OpenAIService {
                         e.statusCode(), e.code().orElse(""), e.type().orElse(""));
                 var plainParams = ResponseCreateParams.builder()
                         .model(chatDeployment)
-                        .instructions(CHAT_SYSTEM_PROMPT)
+                        .instructions(CHAT_SYSTEM_PROMPT_PLAIN)
                         .inputOfResponse(inputItems)
                         .build();
                 var plainResponse = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
                         c -> c.responses().create(plainParams));
-                out = parseChatOutputFromText(extractOutputText(plainResponse));
+                String plainText = extractOutputText(plainResponse);
+                log.info("Plain chat fallback output: {}", plainText.length() > 800 ? plainText.substring(0, 800) : plainText);
+                out = parseChatOutputFromText(plainText);
             } catch (Exception e) {
                 log.warn("Structured chat parse failed; falling back to plain text parse: {}", e.getMessage());
                 var plainParams = ResponseCreateParams.builder()
                         .model(chatDeployment)
-                        .instructions(CHAT_SYSTEM_PROMPT)
+                        .instructions(CHAT_SYSTEM_PROMPT_PLAIN)
                         .inputOfResponse(inputItems)
                         .build();
                 var plainResponse = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
                         c -> c.responses().create(plainParams));
-                out = parseChatOutputFromText(extractOutputText(plainResponse));
+                String plainText = extractOutputText(plainResponse);
+                log.info("Plain chat fallback output: {}", plainText.length() > 800 ? plainText.substring(0, 800) : plainText);
+                out = parseChatOutputFromText(plainText);
             }
 
             String assistantReply = safe(out.assistant_reply);
@@ -339,30 +364,15 @@ public class OpenAIService {
         fallback.best_prompt_candidate = "";
 
         String candidate = extractJsonCandidate(text);
-        if (candidate == null || candidate.isBlank()) {
-            return fallback;
+        if (candidate != null && !candidate.isBlank()) {
+            try {
+                ChatOutput parsed = JSON.readValue(candidate, ChatOutput.class);
+                return normalizeChatOutput(parsed, fallback.assistant_reply);
+            } catch (Exception ignored) {
+                // fall through to plain-section parsing
+            }
         }
-        try {
-            ChatOutput parsed = JSON.readValue(candidate, ChatOutput.class);
-            if (parsed == null) {
-                return fallback;
-            }
-            if (parsed.assistant_reply == null || parsed.assistant_reply.isBlank()) {
-                parsed.assistant_reply = fallback.assistant_reply;
-            }
-            if (parsed.image_summary == null || parsed.image_summary.isBlank()) {
-                parsed.image_summary = "NONE";
-            }
-            if (parsed.improvement_actions == null) {
-                parsed.improvement_actions = List.of();
-            }
-            if (parsed.best_prompt_candidate == null) {
-                parsed.best_prompt_candidate = "";
-            }
-            return parsed;
-        } catch (Exception ignored) {
-            return fallback;
-        }
+        return parseChatOutputSections(text, fallback);
     }
 
     private String extractOutputText(com.openai.models.responses.Response response) {
@@ -396,6 +406,77 @@ public class OpenAIService {
             return trimmed.substring(start, end + 1);
         }
         return null;
+    }
+
+    private ChatOutput parseChatOutputSections(String text, ChatOutput fallback) {
+        String normalized = safe(text).replace("\r\n", "\n");
+        if (normalized.isBlank()) {
+            return fallback;
+        }
+
+        String assistant = section(normalized, "ASSISTANT_REPLY:", "IMAGE_SUMMARY:");
+        String summary = section(normalized, "IMAGE_SUMMARY:", "IMPROVEMENT_ACTIONS:");
+        String actionsBlock = section(normalized, "IMPROVEMENT_ACTIONS:", "BEST_PROMPT_CANDIDATE:");
+        String prompt = sectionFrom(normalized, "BEST_PROMPT_CANDIDATE:");
+
+        ChatOutput out = new ChatOutput();
+        out.assistant_reply = assistant.isBlank() ? fallback.assistant_reply : assistant;
+        out.image_summary = summary.isBlank() ? "NONE" : summary;
+        out.improvement_actions = parseBullets(actionsBlock);
+        out.best_prompt_candidate = prompt;
+        return normalizeChatOutput(out, fallback.assistant_reply);
+    }
+
+    private ChatOutput normalizeChatOutput(ChatOutput parsed, String fallbackReply) {
+        if (parsed == null) {
+            ChatOutput out = new ChatOutput();
+            out.assistant_reply = fallbackReply;
+            out.image_summary = "NONE";
+            out.improvement_actions = List.of();
+            out.best_prompt_candidate = "";
+            return out;
+        }
+        if (parsed.assistant_reply == null || parsed.assistant_reply.isBlank()) {
+            parsed.assistant_reply = fallbackReply;
+        }
+        if (parsed.image_summary == null || parsed.image_summary.isBlank()) {
+            parsed.image_summary = "NONE";
+        }
+        if (parsed.improvement_actions == null) {
+            parsed.improvement_actions = List.of();
+        }
+        if (parsed.best_prompt_candidate == null) {
+            parsed.best_prompt_candidate = "";
+        }
+        return parsed;
+    }
+
+    private List<String> parseBullets(String block) {
+        if (block == null || block.isBlank()) {
+            return List.of();
+        }
+        return block.lines()
+                .map(String::trim)
+                .filter(line -> line.startsWith("- "))
+                .map(line -> line.substring(2).trim())
+                .filter(line -> !line.isBlank())
+                .collect(Collectors.toList());
+    }
+
+    private String section(String text, String start, String end) {
+        int s = text.indexOf(start);
+        if (s < 0) return "";
+        s += start.length();
+        int e = text.indexOf(end, s);
+        if (e < 0) e = text.length();
+        return text.substring(s, e).trim();
+    }
+
+    private String sectionFrom(String text, String start) {
+        int s = text.indexOf(start);
+        if (s < 0) return "";
+        s += start.length();
+        return text.substring(s).trim();
     }
 
     private boolean shouldFallbackToPlainChat(OpenAIServiceException e) {
