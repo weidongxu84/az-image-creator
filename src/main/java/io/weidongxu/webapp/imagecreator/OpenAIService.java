@@ -61,8 +61,6 @@ public class OpenAIService {
             <single gpt-image-2 EDIT prompt for the uploaded image, or empty if no image>
 
             Additional rules:
-            - If image is present, write BEST_PROMPT_CANDIDATE for image-to-image editing of the
-              uploaded photo, not fresh generation.
             - Preserve original subject/composition unless user asks to change them.
             """;
 
