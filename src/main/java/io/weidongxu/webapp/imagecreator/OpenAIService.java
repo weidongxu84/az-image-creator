@@ -152,7 +152,18 @@ public class OpenAIService {
                 }
                 out = outputs.get(outputs.size() - 1);
             } catch (OpenAIServiceException e) {
-                throw e;
+                if (!shouldFallbackToPlainChat(e)) {
+                    throw e;
+                }
+                log.warn("Structured chat call not supported; retrying without structured output. HTTP {} code={} type={}",
+                        e.statusCode(), e.code().orElse(""), e.type().orElse(""));
+                var plainParams = ResponseCreateParams.builder()
+                        .model(chatDeployment)
+                        .instructions(CHAT_SYSTEM_PROMPT)
+                        .inputOfResponse(inputItems)
+                        .build();
+                var plainResponse = executeWithPreferredAuth(c -> c.responses().create(plainParams));
+                out = parseChatOutputFromText(extractOutputText(plainResponse));
             } catch (Exception e) {
                 log.warn("Structured chat parse failed; falling back to plain text parse: {}", e.getMessage());
                 var plainParams = ResponseCreateParams.builder()
@@ -360,6 +371,20 @@ public class OpenAIService {
             return trimmed.substring(start, end + 1);
         }
         return null;
+    }
+
+    private boolean shouldFallbackToPlainChat(OpenAIServiceException e) {
+        int status = e.statusCode();
+        String msg = safe(e.getMessage()).toLowerCase();
+        if (status == 400 || status == 404 || status == 422) {
+            return msg.contains("response_format")
+                    || msg.contains("json schema")
+                    || msg.contains("structured")
+                    || msg.contains("text.format")
+                    || msg.contains("invalid type for 'text'")
+                    || msg.contains("unsupported");
+        }
+        return false;
     }
 
     private <T> T executeWithPreferredAuth(Function<OpenAIClient, T> request) {

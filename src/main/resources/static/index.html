@@ -911,8 +911,14 @@ async function sendChat() {
   try {
     const res = await apiFetch('/api/chat', { method: 'POST', body: form });
     if (!res.ok) {
-      const txt = await res.text().catch(() => 'Unknown error');
-      throw new Error('HTTP ' + res.status + ': ' + txt);
+      let detail = 'Unknown error';
+      try {
+        const payload = await res.json();
+        detail = payload.error || JSON.stringify(payload);
+      } catch {
+        detail = await res.text().catch(() => 'Unknown error');
+      }
+      throw new Error(detail);
     }
     const data = await res.json();
     chatTurns.push({

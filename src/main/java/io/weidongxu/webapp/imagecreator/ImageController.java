@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.openai.errors.OpenAIServiceException;
 
 import java.util.List;
 import java.util.Map;
@@ -105,6 +106,28 @@ public class ImageController {
 
         ChatResponsePayload response = openAIService.chat(message, history, imageBytes, imageFilename);
         return ResponseEntity.ok(response);
+    }
+
+    @ExceptionHandler(OpenAIServiceException.class)
+    public ResponseEntity<Map<String, String>> handleOpenAI(OpenAIServiceException e) {
+        int status = e.statusCode();
+        String detail = e.getMessage() == null || e.getMessage().isBlank()
+                ? "OpenAI API error"
+                : e.getMessage();
+        log.warn("OpenAI API error HTTP {} code={} type={} message={}",
+                status, e.code().orElse(""), e.type().orElse(""), detail);
+
+        String userMsg;
+        if (status == 429) {
+            userMsg = "Rate limited by model endpoint. Please retry in a moment.";
+        } else if (status == 401 || status == 403) {
+            userMsg = "Model access denied. Please verify managed identity or API key permissions.";
+        } else if (status >= 400 && status < 500) {
+            userMsg = "Request rejected by model endpoint: " + detail;
+        } else {
+            userMsg = "Model request failed. Please retry.";
+        }
+        return ResponseEntity.status(502).body(Map.of("error", userMsg));
     }
 
     @GetMapping("/images")
