@@ -1,7 +1,9 @@
 package io.weidongxu.webapp.imagecreator;
 
 import com.azure.core.credential.TokenRequestContext;
+import com.azure.core.credential.TokenCredential;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.openai.azure.AzureUrlPathMode;
 import com.openai.azure.AzureOpenAIServiceVersion;
 import com.openai.client.OpenAIClient;
@@ -9,11 +11,6 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.credential.BearerTokenCredential;
 import com.openai.errors.OpenAIServiceException;
 import com.openai.core.MultipartField;
-import com.openai.models.responses.ResponseCreateParams;
-import com.openai.models.responses.EasyInputMessage;
-import com.openai.models.responses.ResponseInputImage;
-import com.openai.models.responses.ResponseInputItem;
-import com.openai.models.responses.StructuredResponseCreateParams;
 import com.openai.models.images.ImageEditParams;
 import com.openai.models.images.ImageEditParams.Image;
 import com.openai.models.images.ImageGenerateParams;
@@ -23,9 +20,14 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -37,29 +39,6 @@ public class OpenAIService {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String IMAGE_API_VERSION = "2025-04-01-preview";
     private static final long OUTPUT_COMPRESSION = 95L;
-    private static final String CHAT_SYSTEM_PROMPT = """
-            You are an expert creative image consultant and prompt engineer.
-            
-            Answer the user naturally and helpfully. If the current user turn contains an image,
-            include practical critique and concrete improvement advice.
-            
-            You MUST output valid JSON with this exact schema:
-            {
-              "assistant_reply": "string",
-              "image_summary": "string",
-              "improvement_actions": ["string", "..."],
-              "best_prompt_candidate": "string"
-            }
-            
-            Rules:
-            - Always return all fields.
-            - If no image is provided in the current turn, set image_summary to "NONE",
-              improvement_actions to an empty array, and best_prompt_candidate to "".
-            - Keep image_summary compact and reusable for later turns.
-            - Keep improvement_actions short and actionable.
-            - Put user-facing explanation and recommendations in assistant_reply.
-            - Do not wrap JSON in markdown fences.
-            """;
     private static final String CHAT_SYSTEM_PROMPT_PLAIN = """
             You are an expert creative image consultant and prompt engineer.
 
@@ -79,30 +58,39 @@ public class OpenAIService {
             - <action 2>
 
             BEST_PROMPT_CANDIDATE:
-            <single improved prompt, or empty if no image>
+            <single gpt-image-2 EDIT prompt for the uploaded image, or empty if no image>
+
+            Additional rules:
+            - If image is present, write BEST_PROMPT_CANDIDATE for image-to-image editing of the
+              uploaded photo, not fresh generation.
+            - Preserve original subject/composition unless user asks to change them.
             """;
 
     private final String deployment;
     private final String chatDeployment;
+    private final String chatResponsesUrl;
+    private final String configuredApiKey;
+    private final TokenCredential tokenCredential;
+    private final ChatResponseParser chatResponseParser;
     private final OpenAIClient managedIdentityImageClient;
-    private final OpenAIClient managedIdentityChatClient;
     private final OpenAIClient apiKeyFallbackImageClient;
-    private final OpenAIClient apiKeyFallbackChatClient;
+    private final HttpClient httpClient;
 
-    public OpenAIService(AppConfig config) {
+    public OpenAIService(AppConfig config, ChatResponseParser chatResponseParser) {
         this.deployment = config.getOpenAIDeployment();
         this.chatDeployment = config.getOpenAIChatDeployment();
         String endpoint = config.getOpenAIEndpoint();
         String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
-        String chatBaseUrl = trimmedEndpoint + "/openai/v1";
+        this.chatResponsesUrl = trimmedEndpoint + "/openai/v1/responses";
+        this.configuredApiKey = config.getOpenAIApiKey();
+        this.tokenCredential = config.getCredential();
+        this.chatResponseParser = chatResponseParser;
+        this.httpClient = HttpClient.newBuilder().build();
 
         var managedImageBuilder = OpenAIOkHttpClient.builder()
                 .baseUrl(endpoint)
                 .azureUrlPathMode(AzureUrlPathMode.UNIFIED)
                 .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION));
-
-        var managedChatBuilder = OpenAIOkHttpClient.builder()
-                .baseUrl(chatBaseUrl);
 
         TokenRequestContext ctx = new TokenRequestContext()
                 .addScopes("https://cognitiveservices.azure.com/.default");
@@ -110,11 +98,6 @@ public class OpenAIService {
                 .credential(BearerTokenCredential.create(
                         () -> config.getCredential().getToken(ctx).block().getToken()));
         this.managedIdentityImageClient = managedImageBuilder.build();
-
-        managedChatBuilder.apiKey("none")
-                .credential(BearerTokenCredential.create(
-                        () -> config.getCredential().getToken(ctx).block().getToken()));
-        this.managedIdentityChatClient = managedChatBuilder.build();
 
         String apiKey = config.getOpenAIApiKey();
         if (apiKey != null && !apiKey.isBlank()) {
@@ -124,19 +107,14 @@ public class OpenAIService {
                     .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
                     .apiKey(apiKey)
                     .build();
-            this.apiKeyFallbackChatClient = OpenAIOkHttpClient.builder()
-                    .baseUrl(chatBaseUrl)
-                    .apiKey(apiKey)
-                    .build();
         } else {
             this.apiKeyFallbackImageClient = null;
-            this.apiKeyFallbackChatClient = null;
         }
     }
 
     public ChatResponsePayload chat(String message, List<ChatTurn> history, byte[] imageBytes, String imageFilename) {
         try {
-            List<ResponseInputItem> inputItems = new ArrayList<>();
+            List<Map<String, Object>> inputItems = new ArrayList<>();
 
             for (ChatTurn turn : history) {
                 if (turn == null || turn.role() == null || turn.content() == null || turn.content().isBlank()) {
@@ -153,76 +131,36 @@ public class OpenAIService {
                     combined = combined + "\n\n[IMAGE_SUMMARY]\n" + turn.imageSummary().trim();
                 }
 
-                inputItems.add(ResponseInputItem.ofEasyInputMessage(EasyInputMessage.builder()
-                        .role("assistant".equals(role) ? EasyInputMessage.Role.ASSISTANT : EasyInputMessage.Role.USER)
-                        .content(combined)
-                        .build()));
+                Map<String, Object> msg = new HashMap<>();
+                msg.put("role", role);
+                msg.put("content", combined);
+                inputItems.add(msg);
             }
 
-            var currentMessage = ResponseInputItem.Message.builder()
-                    .role(ResponseInputItem.Message.Role.USER)
-                    .addInputTextContent(message);
-
             boolean usedImage = imageBytes != null && imageBytes.length > 0;
+            Map<String, Object> currentMessage = new HashMap<>();
+            currentMessage.put("role", "user");
             if (usedImage) {
                 String mime = contentTypeFromFilename(imageFilename);
                 String dataUrl = "data:" + mime + ";base64," + Base64.getEncoder().encodeToString(imageBytes);
-                currentMessage.addContent(ResponseInputImage.builder()
-                        .detail(ResponseInputImage.Detail.AUTO)
-                        .imageUrl(dataUrl)
-                        .build());
+                List<Map<String, Object>> content = new ArrayList<>();
+                Map<String, Object> textPart = new HashMap<>();
+                textPart.put("type", "input_text");
+                textPart.put("text", message);
+                content.add(textPart);
+                Map<String, Object> imagePart = new HashMap<>();
+                imagePart.put("type", "input_image");
+                imagePart.put("image_url", dataUrl);
+                content.add(imagePart);
+                currentMessage.put("content", content);
+            } else {
+                currentMessage.put("content", message);
             }
+            inputItems.add(currentMessage);
 
-            inputItems.add(ResponseInputItem.ofMessage(currentMessage.build()));
-
-            ChatOutput out;
-            try {
-                StructuredResponseCreateParams<ChatOutput> params = ResponseCreateParams.builder()
-                        .model(chatDeployment)
-                        .instructions(CHAT_SYSTEM_PROMPT)
-                        .inputOfResponse(inputItems)
-                        .text(ChatOutput.class)
-                        .build();
-                var response = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
-                        c -> c.responses().create(params));
-                List<ChatOutput> outputs = response.output().stream()
-                        .flatMap(item -> item.message().stream())
-                        .flatMap(messageItem -> messageItem.content().stream())
-                        .flatMap(content -> content.outputText().stream())
-                        .collect(Collectors.toList());
-                if (outputs.isEmpty()) {
-                    throw new RuntimeException("No chat output returned from model");
-                }
-                out = outputs.get(outputs.size() - 1);
-            } catch (OpenAIServiceException e) {
-                if (!shouldFallbackToPlainChat(e)) {
-                    throw e;
-                }
-                log.warn("Structured chat call not supported; retrying without structured output. HTTP {} code={} type={}",
-                        e.statusCode(), e.code().orElse(""), e.type().orElse(""));
-                var plainParams = ResponseCreateParams.builder()
-                        .model(chatDeployment)
-                        .instructions(CHAT_SYSTEM_PROMPT_PLAIN)
-                        .inputOfResponse(inputItems)
-                        .build();
-                var plainResponse = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
-                        c -> c.responses().create(plainParams));
-                String plainText = extractOutputText(plainResponse);
-                log.info("Plain chat fallback output: {}", plainText.length() > 800 ? plainText.substring(0, 800) : plainText);
-                out = parseChatOutputFromText(plainText);
-            } catch (Exception e) {
-                log.warn("Structured chat parse failed; falling back to plain text parse: {}", e.getMessage());
-                var plainParams = ResponseCreateParams.builder()
-                        .model(chatDeployment)
-                        .instructions(CHAT_SYSTEM_PROMPT_PLAIN)
-                        .inputOfResponse(inputItems)
-                        .build();
-                var plainResponse = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
-                        c -> c.responses().create(plainParams));
-                String plainText = extractOutputText(plainResponse);
-                log.info("Plain chat fallback output: {}", plainText.length() > 800 ? plainText.substring(0, 800) : plainText);
-                out = parseChatOutputFromText(plainText);
-            }
+            String plainText = callChatResponsesApi(inputItems);
+            log.info("Plain chat output: {}", plainText.length() > 800 ? plainText.substring(0, 800) : plainText);
+            ChatOutput out = chatResponseParser.parse(plainText);
 
             String assistantReply = safe(out.assistant_reply);
             String imageSummary = safe(out.image_summary);
@@ -245,6 +183,87 @@ public class OpenAIService {
         } catch (Exception e) {
             throw new RuntimeException("Chat request failed: " + e.getMessage(), e);
         }
+    }
+
+    private String callChatResponsesApi(List<Map<String, Object>> inputItems) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", chatDeployment);
+        body.put("instructions", CHAT_SYSTEM_PROMPT_PLAIN);
+        body.put("input", inputItems);
+
+        String bodyJson;
+        try {
+            bodyJson = JSON.writeValueAsString(body);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize chat request", e);
+        }
+
+        try {
+            String bearer = tokenCredential.getToken(new TokenRequestContext()
+                            .addScopes("https://cognitiveservices.azure.com/.default"))
+                    .block().getToken();
+            return sendChatHttp(bodyJson, "Authorization", "Bearer " + bearer);
+        } catch (Exception e) {
+            if (configuredApiKey == null || configuredApiKey.isBlank()) {
+                throw new RuntimeException("Managed identity chat auth failed and no API key fallback configured", e);
+            }
+            log.warn("Managed identity chat auth failed. Retrying chat with API key fallback.");
+            return sendChatHttp(bodyJson, "api-key", configuredApiKey);
+        }
+    }
+
+    private String sendChatHttp(String bodyJson, String authHeader, String authValue) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(chatResponsesUrl))
+                    .header("Content-Type", "application/json")
+                    .header(authHeader, authValue)
+                    .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() / 100 != 2) {
+                String msg = response.body();
+                try {
+                    JsonNode err = JSON.readTree(response.body()).path("error");
+                    String detail = err.path("message").asText();
+                    if (detail != null && !detail.isBlank()) {
+                        msg = detail;
+                    }
+                } catch (Exception ignored) {
+                }
+                throw new RuntimeException("HTTP " + response.statusCode() + ": " + msg);
+            }
+
+            JsonNode root = JSON.readTree(response.body());
+            String outputText = extractOutputTextFromResponsesJson(root);
+            if (outputText.isBlank()) {
+                throw new RuntimeException("No text output in chat response");
+            }
+            return outputText;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Chat HTTP request failed", e);
+        }
+    }
+
+    private String extractOutputTextFromResponsesJson(JsonNode root) {
+        StringBuilder sb = new StringBuilder();
+        JsonNode output = root.path("output");
+        if (output.isArray()) {
+            for (JsonNode item : output) {
+                if (!"message".equals(item.path("type").asText())) continue;
+                JsonNode content = item.path("content");
+                if (!content.isArray()) continue;
+                for (JsonNode part : content) {
+                    if ("output_text".equals(part.path("type").asText())) {
+                        if (sb.length() > 0) sb.append('\n');
+                        sb.append(part.path("text").asText(""));
+                    }
+                }
+            }
+        }
+        return sb.toString().trim();
     }
 
     public List<byte[]> generateImage(String prompt, String size, String outputFormat, int n) {
@@ -355,143 +374,6 @@ public class OpenAIService {
 
     private String safe(String value) {
         return value == null ? "" : value.trim();
-    }
-
-    private ChatOutput parseChatOutputFromText(String text) {
-        ChatOutput fallback = new ChatOutput();
-        fallback.assistant_reply = safe(text);
-        fallback.image_summary = "NONE";
-        fallback.improvement_actions = List.of();
-        fallback.best_prompt_candidate = "";
-
-        String candidate = extractJsonCandidate(text);
-        if (candidate != null && !candidate.isBlank()) {
-            try {
-                ChatOutput parsed = JSON.readValue(candidate, ChatOutput.class);
-                return normalizeChatOutput(parsed, fallback.assistant_reply);
-            } catch (Exception ignored) {
-                // fall through to plain-section parsing
-            }
-        }
-        return parseChatOutputSections(text, fallback);
-    }
-
-    private String extractOutputText(com.openai.models.responses.Response response) {
-        String text = response.output().stream()
-                .flatMap(item -> item.message().stream())
-                .flatMap(message -> message.content().stream())
-                .flatMap(content -> content.outputText().stream())
-                .map(t -> t.text())
-                .collect(Collectors.joining("\n"))
-                .trim();
-        if (!text.isBlank()) {
-            return text;
-        }
-        return "Sorry, I could not parse the model output.";
-    }
-
-    private String extractJsonCandidate(String text) {
-        String trimmed = safe(text);
-        if (trimmed.startsWith("```") && trimmed.endsWith("```")) {
-            int firstNewline = trimmed.indexOf('\n');
-            if (firstNewline > 0 && trimmed.length() > firstNewline + 4) {
-                trimmed = trimmed.substring(firstNewline + 1, trimmed.length() - 3).trim();
-            }
-        }
-        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-            return trimmed;
-        }
-        int start = trimmed.indexOf('{');
-        int end = trimmed.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return trimmed.substring(start, end + 1);
-        }
-        return null;
-    }
-
-    private ChatOutput parseChatOutputSections(String text, ChatOutput fallback) {
-        String normalized = safe(text).replace("\r\n", "\n");
-        if (normalized.isBlank()) {
-            return fallback;
-        }
-
-        String assistant = section(normalized, "ASSISTANT_REPLY:", "IMAGE_SUMMARY:");
-        String summary = section(normalized, "IMAGE_SUMMARY:", "IMPROVEMENT_ACTIONS:");
-        String actionsBlock = section(normalized, "IMPROVEMENT_ACTIONS:", "BEST_PROMPT_CANDIDATE:");
-        String prompt = sectionFrom(normalized, "BEST_PROMPT_CANDIDATE:");
-
-        ChatOutput out = new ChatOutput();
-        out.assistant_reply = assistant.isBlank() ? fallback.assistant_reply : assistant;
-        out.image_summary = summary.isBlank() ? "NONE" : summary;
-        out.improvement_actions = parseBullets(actionsBlock);
-        out.best_prompt_candidate = prompt;
-        return normalizeChatOutput(out, fallback.assistant_reply);
-    }
-
-    private ChatOutput normalizeChatOutput(ChatOutput parsed, String fallbackReply) {
-        if (parsed == null) {
-            ChatOutput out = new ChatOutput();
-            out.assistant_reply = fallbackReply;
-            out.image_summary = "NONE";
-            out.improvement_actions = List.of();
-            out.best_prompt_candidate = "";
-            return out;
-        }
-        if (parsed.assistant_reply == null || parsed.assistant_reply.isBlank()) {
-            parsed.assistant_reply = fallbackReply;
-        }
-        if (parsed.image_summary == null || parsed.image_summary.isBlank()) {
-            parsed.image_summary = "NONE";
-        }
-        if (parsed.improvement_actions == null) {
-            parsed.improvement_actions = List.of();
-        }
-        if (parsed.best_prompt_candidate == null) {
-            parsed.best_prompt_candidate = "";
-        }
-        return parsed;
-    }
-
-    private List<String> parseBullets(String block) {
-        if (block == null || block.isBlank()) {
-            return List.of();
-        }
-        return block.lines()
-                .map(String::trim)
-                .filter(line -> line.startsWith("- "))
-                .map(line -> line.substring(2).trim())
-                .filter(line -> !line.isBlank())
-                .collect(Collectors.toList());
-    }
-
-    private String section(String text, String start, String end) {
-        int s = text.indexOf(start);
-        if (s < 0) return "";
-        s += start.length();
-        int e = text.indexOf(end, s);
-        if (e < 0) e = text.length();
-        return text.substring(s, e).trim();
-    }
-
-    private String sectionFrom(String text, String start) {
-        int s = text.indexOf(start);
-        if (s < 0) return "";
-        s += start.length();
-        return text.substring(s).trim();
-    }
-
-    private boolean shouldFallbackToPlainChat(OpenAIServiceException e) {
-        int status = e.statusCode();
-        String msg = safe(e.getMessage()).toLowerCase();
-        if (status == 400 || status == 404 || status == 422) {
-            return msg.contains("response_format")
-                    || msg.contains("json schema")
-                    || msg.contains("structured")
-                    || msg.contains("text.format")
-                    || msg.contains("invalid type for 'text'")
-                    || msg.contains("unsupported");
-        }
-        return false;
     }
 
     private <T> T executeWithPreferredAuth(OpenAIClient primaryClient, OpenAIClient fallbackClient,
