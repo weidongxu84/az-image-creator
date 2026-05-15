@@ -371,6 +371,15 @@ function notifyImageReady() {
   }
 }
 
+function notifyImageFailed(msg) {
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    new Notification('AI Image Creator', {
+      body: 'Image generation failed: ' + (msg || 'Unknown error'),
+      icon: '/favicon.ico'
+    });
+  }
+}
+
 // ─── Generate ─────────────────────────────────────────────────────────────────
 let pollingTimer = null;
 let startTime   = null;
@@ -512,6 +521,7 @@ function classifyAndShowError(msg) {
 }
 
 function showError(type, msg, label) {
+  notifyImageFailed(msg);
   const area = document.getElementById('status-area');
   area.style.display = 'block';
   const cssClass = type === 'content' ? 'status-error-content'
