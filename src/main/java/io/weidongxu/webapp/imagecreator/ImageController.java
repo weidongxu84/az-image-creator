@@ -147,8 +147,16 @@ public class ImageController {
     }
 
     @GetMapping("/images")
-    public List<ImageInfo> listImages() {
-        return storageService.listImages();
+    public PagedImageResponse listImages(
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "6") int size) {
+        List<ImageInfo> all = storageService.listImages();
+        long total = all.size();
+        int totalPages = (int) Math.ceil((double) total / size);
+        int fromIndex = Math.min(page * size, all.size());
+        int toIndex = Math.min(fromIndex + size, all.size());
+        List<ImageInfo> pageItems = all.subList(fromIndex, toIndex);
+        return new PagedImageResponse(pageItems, page, totalPages, total);
     }
 
     @GetMapping("/images/{name}")

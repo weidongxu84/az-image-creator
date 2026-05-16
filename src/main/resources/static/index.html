@@ -264,6 +264,11 @@
     <span id="browse-count" style="color:#64748b;font-size:.85rem"></span>
   </div>
   <div id="image-grid" class="image-grid"></div>
+  <div id="browse-pagination" style="display:none;margin-top:1rem;text-align:center;">
+    <button class="btn btn-secondary" id="page-prev" onclick="changePage(-1)">← Prev</button>
+    <span id="page-info" style="margin:0 1rem;color:#94a3b8;font-size:.9rem"></span>
+    <button class="btn btn-secondary" id="page-next" onclick="changePage(1)">Next →</button>
+  </div>
 
 </div>
 
@@ -558,21 +563,39 @@ function showResult(imageNames) {
 }
 
 // ─── Browse tab ───────────────────────────────────────────────────────────────
+let currentPage = 0;
+const PAGE_SIZE = 6;
+
+function changePage(delta) {
+  currentPage += delta;
+  if (currentPage < 0) currentPage = 0;
+  loadImages();
+}
+
 async function loadImages() {
   const grid = document.getElementById('image-grid');
   grid.innerHTML = '<div class="empty-state">Loading…</div>';
   document.getElementById('browse-count').textContent = '';
+  document.getElementById('browse-pagination').style.display = 'none';
 
   try {
-    const res = await apiFetch('/api/images');
+    const res = await apiFetch(`/api/images?page=${currentPage}&size=${PAGE_SIZE}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const images = await res.json();
+    const data = await res.json();
+    const images = data.images;
+    const totalPages = data.totalPages;
+    const totalImages = data.totalImages;
 
-    if (images.length === 0) {
+    if (totalImages === 0) {
       grid.innerHTML = '<div class="empty-state">No images yet. Go generate one!</div>';
       return;
     }
-    document.getElementById('browse-count').textContent = images.length + ' image' + (images.length !== 1 ? 's' : '');
+    if (currentPage >= totalPages) {
+      currentPage = Math.max(0, totalPages - 1);
+      loadImages();
+      return;
+    }
+    document.getElementById('browse-count').textContent = totalImages + ' image' + (totalImages !== 1 ? 's' : '');
     grid.innerHTML = images.map(img => `
       <div class="image-card" data-name="${escAttr(img.name)}" data-prompt="${escAttr(img.prompt)}">
         <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.name)}" loading="lazy">
@@ -594,6 +617,14 @@ async function loadImages() {
       card.querySelector('.card-view-btn').addEventListener('click', () => openModal(name, prompt));
       card.querySelector('.card-delete-btn').addEventListener('click', function() { deleteImage(name, this); });
     });
+
+    // Pagination controls
+    if (totalPages > 1) {
+      document.getElementById('browse-pagination').style.display = 'block';
+      document.getElementById('page-prev').disabled = currentPage === 0;
+      document.getElementById('page-next').disabled = currentPage >= totalPages - 1;
+      document.getElementById('page-info').textContent = `Page ${currentPage + 1} of ${totalPages}`;
+    }
   } catch (e) {
     grid.innerHTML = `<div class="empty-state" style="color:#f87171">Failed to load: ${escHtml(e.message)}</div>`;
   }
@@ -606,15 +637,7 @@ async function deleteImage(name, btn) {
   try {
     const res = await apiFetch('/api/images/' + encodeURIComponent(name), { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    // Remove the card from the DOM
-    btn.closest('.image-card').remove();
-    const grid = document.getElementById('image-grid');
-    const remaining = grid.querySelectorAll('.image-card').length;
-    document.getElementById('browse-count').textContent =
-      remaining + ' image' + (remaining !== 1 ? 's' : '');
-    if (remaining === 0) {
-      grid.innerHTML = '<div class="empty-state">No images yet. Go generate one!</div>';
-    }
+    loadImages();
   } catch (e) {
     alert('Delete failed: ' + e.message);
     btn.disabled = false;
