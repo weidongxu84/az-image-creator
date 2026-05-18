@@ -268,6 +268,10 @@
     <button class="btn btn-secondary" id="page-prev" onclick="changePage(-1)">← Prev</button>
     <span id="page-info" style="margin:0 1rem;color:#94a3b8;font-size:.9rem"></span>
     <button class="btn btn-secondary" id="page-next" onclick="changePage(1)">Next →</button>
+    <span style="margin-left:1.5rem;">
+      <input type="number" id="page-jump-input" min="1" style="width:3.5rem;padding:.3rem .5rem;border-radius:6px;border:1px solid #3d4260;background:#1e2030;color:#e2e8f0;text-align:center;font-size:.85rem" onkeydown="if(event.key==='Enter')jumpToPage()">
+      <button class="btn btn-secondary" onclick="jumpToPage()" style="padding:.3rem .7rem;font-size:.85rem">Go</button>
+    </span>
   </div>
 
 </div>
@@ -569,6 +573,14 @@ const PAGE_SIZE = 6;
 function changePage(delta) {
   currentPage += delta;
   if (currentPage < 0) currentPage = 0;
+  loadImages();
+}
+
+function jumpToPage() {
+  const input = document.getElementById('page-jump-input');
+  const val = parseInt(input.value, 10);
+  if (isNaN(val) || val < 1) return;
+  currentPage = val - 1;
   loadImages();
 }
 

@@ -54,8 +54,7 @@ public class StorageService {
         Map<String, String> metadata = new HashMap<>();
         if (prompt != null && !prompt.isBlank()) {
             String truncated = prompt.length() > 4000 ? prompt.substring(0, 4000) : prompt;
-            String cleaned = truncated.replace("\r", " ").replace("\n", " ");
-            metadata.put("prompt", URLEncoder.encode(cleaned, StandardCharsets.UTF_8));
+            metadata.put("prompt", URLEncoder.encode(truncated, StandardCharsets.UTF_8));
         }
 
         BlobParallelUploadOptions options = new BlobParallelUploadOptions(BinaryData.fromBytes(imageData))
