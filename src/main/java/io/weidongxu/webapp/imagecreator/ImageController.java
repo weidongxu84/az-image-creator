@@ -175,6 +175,7 @@ public class ImageController {
             }
             return ResponseEntity.ok()
                     .contentType(contentType)
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + name + "\"")
                     .body(data);
         } catch (BlobStorageException e) {
