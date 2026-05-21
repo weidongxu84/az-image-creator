@@ -560,7 +560,7 @@ function showResult(imageNames) {
     html += `<div style="margin-bottom:1.2rem">
       <img src="/api/images/${encodeURIComponent(name)}" alt="generated image" style="max-width:100%;border-radius:10px;border:1px solid #2d3148">
       <div class="img-actions" style="margin-top:.5rem">
-        <a class="btn btn-secondary" href="/api/images/${encodeURIComponent(name)}" download="${escAttr(name)}">⬇ Download</a>
+        <a class="btn btn-secondary" href="/api/images/${encodeURIComponent(name)}" download="${escAttr(name.includes('/') ? name.split('/').pop() : name)}">⬇ Download</a>
         <span style="color:#64748b;font-size:.8rem;margin-left:.5rem">${escHtml(name)}</span>
       </div>
     </div>`;
@@ -646,7 +646,7 @@ async function loadImages() {
         </div>
         <div class="card-footer">
           <button class="btn btn-secondary card-view-btn">View</button>
-          <a class="btn btn-primary" href="/api/images/${encodeURIComponent(img.name)}" download="${escAttr(img.name)}">⬇</a>
+          <a class="btn btn-primary" href="/api/images/${encodeURIComponent(img.name)}" download="${escAttr(img.name.includes('/') ? img.name.split('/').pop() : img.name)}">⬇</a>
           <button class="btn btn-danger card-delete-btn">🗑</button>
         </div>
       </div>`).join('');
@@ -704,7 +704,7 @@ function openModal(name, prompt) {
   dlBtn.onclick = () => {
     const a = document.createElement('a');
     a.href = '/api/images/' + encodeURIComponent(name);
-    a.download = name;
+    a.download = name.includes('/') ? name.split('/').pop() : name;
     a.click();
   };
   document.getElementById('modal').classList.remove('hidden');

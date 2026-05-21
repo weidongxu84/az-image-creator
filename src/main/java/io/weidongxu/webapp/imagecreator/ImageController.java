@@ -179,7 +179,7 @@ public class ImageController {
             return ResponseEntity.ok()
                     .contentType(contentType)
                     .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + name + "\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + (name.contains("/") ? name.substring(name.lastIndexOf('/') + 1) : name) + "\"")
                     .body(data);
         } catch (BlobStorageException e) {
             log.warn("Image not found: {}", name);
