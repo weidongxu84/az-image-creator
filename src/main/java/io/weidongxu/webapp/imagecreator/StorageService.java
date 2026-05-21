@@ -1,5 +1,6 @@
 package io.weidongxu.webapp.imagecreator;
 
+import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
@@ -7,7 +8,10 @@ import com.azure.storage.blob.models.BlobHttpHeaders;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobListDetails;
 import com.azure.storage.blob.models.ListBlobsOptions;
+import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
+import com.azure.storage.blob.sas.BlobSasPermission;
+import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.azure.core.util.BinaryData;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +19,7 @@ import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -25,10 +30,11 @@ import java.util.stream.Collectors;
 @Service
 public class StorageService {
 
+    private final BlobServiceClient serviceClient;
     private final BlobContainerClient containerClient;
 
     public StorageService(AppConfig config) {
-        BlobServiceClient serviceClient = new BlobServiceClientBuilder()
+        this.serviceClient = new BlobServiceClientBuilder()
                 .endpoint("https://" + config.getStorageAccountName() + ".blob.core.windows.net")
                 .credential(config.getCredential())
                 .buildClient();
@@ -91,6 +97,20 @@ public class StorageService {
 
     public void delete(String blobName) {
         containerClient.getBlobClient(blobName).delete();
+    }
+
+    public String generateSasUrl(String blobName) {
+        OffsetDateTime now = OffsetDateTime.now();
+        UserDelegationKey delegationKey = serviceClient.getUserDelegationKey(
+                now.minusMinutes(5), now.plusHours(1));
+
+        BlobClient blobClient = containerClient.getBlobClient(blobName);
+        BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
+        BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(
+                now.plusHours(1), permission);
+
+        String sasToken = blobClient.generateUserDelegationSas(sasValues, delegationKey);
+        return blobClient.getBlobUrl() + "?" + sasToken;
     }
 
     private String decodePrompt(Map<String, String> metadata) {

@@ -318,6 +318,7 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal()">Close</button>
       <button class="btn btn-secondary" id="modal-copy-btn" style="display:none" onclick="copyModalPrompt()">📋 Copy prompt</button>
+      <button class="btn btn-secondary" id="modal-share-btn" onclick="shareImage()">🔗 Share</button>
       <button class="btn btn-primary" id="modal-dl-btn">⬇ Download</button>
     </div>
   </div>
@@ -726,6 +727,24 @@ async function copyModalPrompt() {
   } catch {
     btn.textContent = '✖ Failed';
     setTimeout(() => btn.textContent = '📋 Copy prompt', 2000);
+  }
+}
+
+async function shareImage() {
+  const btn = document.getElementById('modal-share-btn');
+  const name = document.getElementById('modal-name').textContent;
+  btn.disabled = true;
+  btn.textContent = '🔗 Loading…';
+  try {
+    const res = await apiFetch('/api/images-sas/' + encodeURIComponent(name));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    await navigator.clipboard.writeText(data.url);
+    btn.textContent = '✅ Link copied!';
+    setTimeout(() => { btn.textContent = '🔗 Share'; btn.disabled = false; }, 2000);
+  } catch (e) {
+    btn.textContent = '✖ Failed';
+    setTimeout(() => { btn.textContent = '🔗 Share'; btn.disabled = false; }, 2000);
   }
 }
 

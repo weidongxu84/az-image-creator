@@ -200,6 +200,18 @@ public class ImageController {
         }
     }
 
+    @GetMapping("/images-sas/{*name}")
+    public ResponseEntity<Map<String, String>> getImageSas(@PathVariable String name) {
+        if (name.startsWith("/")) name = name.substring(1);
+        try {
+            String url = storageService.generateSasUrl(name);
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (BlobStorageException e) {
+            log.warn("Image not found for SAS: {}", name);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     /** Health ping, no auth required */
     @GetMapping("/")
     public ResponseEntity<Void> root() {
