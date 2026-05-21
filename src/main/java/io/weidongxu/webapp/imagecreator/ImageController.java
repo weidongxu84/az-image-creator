@@ -149,8 +149,9 @@ public class ImageController {
     @GetMapping("/images")
     public ResponseEntity<PagedImageResponse> listImages(
             @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "size", defaultValue = "6") int size) {
-        List<ImageInfo> all = storageService.listImages();
+            @RequestParam(name = "size", defaultValue = "6") int size,
+            @RequestParam(name = "prefix", required = false) String prefix) {
+        List<ImageInfo> all = storageService.listImages(prefix);
         long total = all.size();
         int totalPages = (int) Math.ceil((double) total / size);
         int fromIndex = Math.min(page * size, all.size());
@@ -161,8 +162,10 @@ public class ImageController {
                 .body(new PagedImageResponse(pageItems, page, totalPages, total));
     }
 
-    @GetMapping("/images/{name}")
+    @GetMapping("/images/{*name}")
     public ResponseEntity<byte[]> downloadImage(@PathVariable String name) {
+        // Strip leading slash from {*name} capture
+        if (name.startsWith("/")) name = name.substring(1);
         try {
             byte[] data = storageService.download(name);
             MediaType contentType;
@@ -184,8 +187,10 @@ public class ImageController {
         }
     }
 
-    @DeleteMapping("/images/{name}")
+    @DeleteMapping("/images/{*name}")
     public ResponseEntity<Void> deleteImage(@PathVariable String name) {
+        // Strip leading slash from {*name} capture
+        if (name.startsWith("/")) name = name.substring(1);
         try {
             storageService.delete(name);
             return ResponseEntity.noContent().build();

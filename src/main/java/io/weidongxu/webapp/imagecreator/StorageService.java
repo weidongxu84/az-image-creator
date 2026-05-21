@@ -47,8 +47,10 @@ public class StorageService {
             default -> "image/png";
         };
 
-        String blobName = "image_"
-                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
+        LocalDateTime now = LocalDateTime.now();
+        String datePrefix = now.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+        String blobName = datePrefix + "/image_"
+                + now.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
                 + ext;
 
         Map<String, String> metadata = new HashMap<>();
@@ -65,9 +67,12 @@ public class StorageService {
         return blobName;
     }
 
-    public List<ImageInfo> listImages() {
+    public List<ImageInfo> listImages(String prefix) {
         ListBlobsOptions options = new ListBlobsOptions()
                 .setDetails(new BlobListDetails().setRetrieveMetadata(true));
+        if (prefix != null && !prefix.isBlank()) {
+            options.setPrefix(prefix);
+        }
 
         return containerClient.listBlobs(options, null).stream()
                 .sorted(Comparator.comparing(

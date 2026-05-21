@@ -261,6 +261,8 @@
 
   <div class="toolbar">
     <button class="btn btn-secondary" onclick="loadImages()">↻ Refresh</button>
+    <input type="month" id="browse-month" style="padding:.3rem .5rem;border-radius:6px;border:1px solid #3d4260;background:#1e2030;color:#e2e8f0;font-size:.85rem" onchange="onMonthChange()">
+    <button class="btn btn-secondary" id="browse-all-btn" onclick="showAllImages()" style="font-size:.85rem;padding:.3rem .7rem">All</button>
     <span id="browse-count" style="color:#64748b;font-size:.85rem"></span>
   </div>
   <div id="image-grid" class="image-grid"></div>
@@ -568,7 +570,32 @@ function showResult(imageNames) {
 
 // ─── Browse tab ───────────────────────────────────────────────────────────────
 let currentPage = 0;
+let currentPrefix = '';
 const PAGE_SIZE = 6;
+
+function initBrowseMonth() {
+  const input = document.getElementById('browse-month');
+  const now = new Date();
+  input.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  currentPrefix = now.getFullYear() + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/';
+}
+initBrowseMonth();
+
+function onMonthChange() {
+  const input = document.getElementById('browse-month');
+  if (!input.value) { showAllImages(); return; }
+  const [year, month] = input.value.split('-');
+  currentPrefix = year + '/' + month + '/';
+  currentPage = 0;
+  loadImages();
+}
+
+function showAllImages() {
+  currentPrefix = '';
+  currentPage = 0;
+  document.getElementById('browse-month').value = '';
+  loadImages();
+}
 
 function changePage(delta) {
   currentPage += delta;
@@ -591,7 +618,8 @@ async function loadImages() {
   document.getElementById('browse-pagination').style.display = 'none';
 
   try {
-    const res = await apiFetch(`/api/images?page=${currentPage}&size=${PAGE_SIZE}`);
+    const prefixParam = currentPrefix ? `&prefix=${encodeURIComponent(currentPrefix)}` : '';
+    const res = await apiFetch(`/api/images?page=${currentPage}&size=${PAGE_SIZE}${prefixParam}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     const images = data.images;
