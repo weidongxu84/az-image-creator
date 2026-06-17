@@ -38,7 +38,7 @@ public class ImageController {
     public ResponseEntity<Map<String, String>> generate(
             @RequestParam("prompt") String prompt,
             @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
-            @RequestParam(name = "outputFormat", required = false, defaultValue = "jpeg") String outputFormat,
+            @RequestParam(name = "outputFormat", required = false, defaultValue = "png") String outputFormat,
             @RequestParam(name = "n", required = false, defaultValue = "1") int n,
             @RequestParam(name = "images", required = false) List<MultipartFile> images,
             @RequestParam(name = "mask", required = false) MultipartFile mask) throws IOException {
