@@ -29,7 +29,7 @@
     border-radius: 8px; color: #e2e8f0; font-size: .95rem; outline: none; transition: border-color .2s;
   }
   textarea:focus, select:focus { border-color: #7c6ad8; }
-  textarea { resize: vertical; min-height: 100px; }
+  textarea { resize: vertical; min-height: 100px; overflow-y: hidden; }
   select option { background: #1e2130; }
 
   .btn {
@@ -331,6 +331,16 @@
 </div>
 
 <script>
+// ─── Auto-resize textareas ───────────────────────────────────────────────────
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+document.querySelectorAll('textarea').forEach(ta => {
+  ta.addEventListener('input', () => autoResize(ta));
+  autoResize(ta);
+});
+
 // ─── File selection ───────────────────────────────────────────────────────────
 const selectedFiles = [];
 
