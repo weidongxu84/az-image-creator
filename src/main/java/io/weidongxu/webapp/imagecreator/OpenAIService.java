@@ -185,7 +185,7 @@ public class OpenAIService {
     }
 
     public List<byte[]> editImage(String prompt, String size, List<byte[]> images,
-                            List<String> filenames, byte[] mask, String outputFormat, int n) {
+                            List<String> filenames, byte[] mask, String outputFormat, int n, String inputFidelity) {
         try {
             var paramsBuilder = ImageEditParams.builder()
                     .prompt(prompt)
@@ -193,7 +193,7 @@ public class OpenAIService {
                     .n((long) n)
                     .size(ImageEditParams.Size.of(size))
                     .quality(ImageEditParams.Quality.HIGH)
-                    .inputFidelity(ImageEditParams.InputFidelity.HIGH)
+                    .inputFidelity(parseInputFidelity(inputFidelity))
                     .outputFormat(ImageEditParams.OutputFormat.of(outputFormat));
 
             if (isCompressedFormat(outputFormat)) {
@@ -201,8 +201,8 @@ public class OpenAIService {
             }
 
             String firstName = (filenames != null && !filenames.isEmpty()) ? filenames.get(0) : "image.jpg";
-            log.info("editImage: {} image(s), first='{}' bytes={}, size={}, format={}",
-                    images.size(), firstName, images.get(0).length, size, outputFormat);
+            log.info("editImage: {} image(s), first='{}' bytes={}, size={}, format={}, inputFidelity={}",
+                    images.size(), firstName, images.get(0).length, size, outputFormat, inputFidelity);
 
             if (images.size() == 1) {
                 paramsBuilder.image(MultipartField.<Image>builder()
@@ -271,6 +271,13 @@ public class OpenAIService {
 
     private boolean isCompressedFormat(String format) {
         return "jpeg".equalsIgnoreCase(format) || "webp".equalsIgnoreCase(format);
+    }
+
+    private ImageEditParams.InputFidelity parseInputFidelity(String value) {
+        if ("high".equalsIgnoreCase(value)) {
+            return ImageEditParams.InputFidelity.HIGH;
+        }
+        return ImageEditParams.InputFidelity.LOW;
     }
 
     private ChatOutput callStructuredChat(List<ResponseInputItem> inputItems, boolean usedImage) {

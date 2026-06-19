@@ -226,6 +226,12 @@
     <option value="10">10</option>
   </select>
 
+  <label>Keep original image</label>
+  <select id="input-fidelity">
+    <option value="low" selected>Low (more flexible edits)</option>
+    <option value="high">High (preserve source style/features)</option>
+  </select>
+
   <label>Reference images <span style="color:#64748b;font-size:.8rem">(optional — up to 8; triggers edit mode)</span></label>
   <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
     <input type="file" id="file-input" accept="image/*" multiple>
@@ -417,6 +423,7 @@ async function startGeneration() {
   formData.append('size', previewMode ? (PREVIEW_SIZES[baseSize] || baseSize) : baseSize);
   formData.append('outputFormat', document.getElementById('output-format').value);
   formData.append('n', document.getElementById('image-count').value);
+  formData.append('inputFidelity', document.getElementById('input-fidelity').value);
   for (const f of selectedFiles) formData.append('images', f);
   const maskBlob = exportMask();
   if (maskBlob) formData.append('mask', maskBlob, 'mask.png');
