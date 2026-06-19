@@ -200,9 +200,15 @@
     <option value="2160x3840">2160 × 3840 (9:16)</option>
   </select>
 
-  <div style="margin-top:.6rem;display:flex;align-items:center;gap:.5rem">
-    <input type="checkbox" id="preview-toggle" style="width:auto;cursor:pointer">
-    <label for="preview-toggle" style="margin:0;cursor:pointer;font-size:.85rem;color:#94a3b8">Preview mode (smaller size, faster)</label>
+  <div style="margin-top:.6rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <input type="checkbox" id="preview-toggle" style="width:auto;cursor:pointer">
+      <label for="preview-toggle" style="margin:0;cursor:pointer;font-size:.85rem;color:#94a3b8">Preview mode (smaller size, faster)</label>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <input type="checkbox" id="high-fidelity-toggle" style="width:auto;cursor:pointer">
+      <label for="high-fidelity-toggle" style="margin:0;cursor:pointer;font-size:.85rem;color:#94a3b8">High fidelity (preserve original image)</label>
+    </div>
   </div>
 
   <label>Output format</label>
@@ -224,12 +230,6 @@
     <option value="8">8</option>
     <option value="9">9</option>
     <option value="10">10</option>
-  </select>
-
-  <label>Keep original image</label>
-  <select id="input-fidelity">
-    <option value="low" selected>Low (more flexible edits)</option>
-    <option value="high">High (preserve source style/features)</option>
   </select>
 
   <label>Reference images <span style="color:#64748b;font-size:.8rem">(optional — up to 8; triggers edit mode)</span></label>
@@ -423,7 +423,7 @@ async function startGeneration() {
   formData.append('size', previewMode ? (PREVIEW_SIZES[baseSize] || baseSize) : baseSize);
   formData.append('outputFormat', document.getElementById('output-format').value);
   formData.append('n', document.getElementById('image-count').value);
-  formData.append('inputFidelity', document.getElementById('input-fidelity').value);
+  formData.append('inputFidelity', document.getElementById('high-fidelity-toggle').checked ? 'high' : 'low');
   for (const f of selectedFiles) formData.append('images', f);
   const maskBlob = exportMask();
   if (maskBlob) formData.append('mask', maskBlob, 'mask.png');
