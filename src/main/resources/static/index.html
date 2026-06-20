@@ -424,9 +424,9 @@ async function startGeneration() {
   const formData = new FormData();
   formData.append('prompt', prompt);
   const PREVIEW_SIZES = {
-    '3264x2448': '1450x1088', '2448x3264': '1088x1450',
-    '2880x2880': '1450x1450',
-    '3840x2160': '1450x816', '2160x3840': '816x1450',
+    '3264x2448': '1440x1088', '2448x3264': '1088x1440',
+    '2880x2880': '1440x1440',
+    '3840x2160': '1440x816', '2160x3840': '816x1440',
   };
   const baseSize = document.getElementById('size').value;
   const previewMode = document.getElementById('preview-toggle').checked;
