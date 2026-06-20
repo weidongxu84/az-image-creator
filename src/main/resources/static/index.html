@@ -193,8 +193,8 @@
 
   <label>Size</label>
   <select id="size">
-    <option value="3264x2448" selected>3264 × 2448 (4:3 landscape)</option>
-    <option value="2448x3264">2448 × 3264 (3:4 portrait)</option>
+    <option value="3264x2448">3264 × 2448 (4:3 landscape)</option>
+    <option value="2448x3264" selected>2448 × 3264 (3:4 portrait)</option>
     <option value="2880x2880">2880 × 2880 (1:1 square)</option>
     <option value="3840x2160">3840 × 2160 (16:9 / 4K)</option>
     <option value="2160x3840">2160 × 3840 (9:16)</option>
@@ -232,6 +232,11 @@
     <option value="10">10</option>
   </select>
 
+  <div class="actions">
+    <button class="btn btn-primary" id="generate-btn" onclick="startGeneration()">⚡ Generate</button>
+    <button class="btn btn-secondary" id="cancel-btn" style="display:none" onclick="cancelPolling()">Cancel</button>
+  </div>
+
   <label>Reference images <span style="color:#64748b;font-size:.8rem">(optional — up to 8; triggers edit mode)</span></label>
   <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
     <input type="file" id="file-input" accept="image/*" multiple>
@@ -250,11 +255,6 @@
       <canvas id="mask-draw-canvas"></canvas>
     </div>
     <p class="mask-hint">Paint over areas you want to edit (shown in red). Unpainted areas are preserved.</p>
-  </div>
-
-  <div class="actions">
-    <button class="btn btn-primary" id="generate-btn" onclick="startGeneration()">⚡ Generate</button>
-    <button class="btn btn-secondary" id="cancel-btn" style="display:none" onclick="cancelPolling()">Cancel</button>
   </div>
 
   <div class="status-area" id="status-area" style="display:none"></div>

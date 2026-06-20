@@ -61,8 +61,13 @@ public class StorageService {
 
         Map<String, String> metadata = new HashMap<>();
         if (prompt != null && !prompt.isBlank()) {
-            String truncated = prompt.length() > 4000 ? prompt.substring(0, 4000) : prompt;
-            metadata.put("prompt", URLEncoder.encode(truncated, StandardCharsets.UTF_8));
+            String encoded = URLEncoder.encode(prompt, StandardCharsets.UTF_8);
+            // Azure blob metadata limit is 8 KiB total. If encoded prompt exceeds limit, truncate original and re-encode.
+            if (encoded.length() > 7500) {
+                String truncated = prompt.length() > 4000 ? prompt.substring(0, 4000) : prompt;
+                encoded = URLEncoder.encode(truncated, StandardCharsets.UTF_8);
+            }
+            metadata.put("prompt", encoded);
         }
 
         BlobParallelUploadOptions options = new BlobParallelUploadOptions(BinaryData.fromBytes(imageData))
