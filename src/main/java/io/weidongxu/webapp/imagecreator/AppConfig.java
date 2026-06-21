@@ -18,6 +18,8 @@ public class AppConfig {
     private final String openAIDeployment;
     private final String openAIChatDeployment;
     private final String openAIApiKey;
+    private final String fluxEndpoint;
+    private final String fluxDeployment;
     private final String storageAccountName;
     private final String storageContainerName;
     private final TokenCredential credential;
@@ -33,6 +35,9 @@ public class AppConfig {
         openAIDeployment = config.get("AZURE_OPENAI_DEPLOYMENT", "gpt-image-2");
         openAIChatDeployment = config.get("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5.4");
         openAIApiKey = config.get("AZURE_OPENAI_IMAGE_API_KEY"); // optional: falls back to managed identity
+
+        fluxEndpoint = config.get("AZURE_FLUX_ENDPOINT"); // optional: FLUX.2 model endpoint
+        fluxDeployment = config.get("AZURE_FLUX_DEPLOYMENT", "FLUX.2-pro");
 
         storageAccountName = Objects.requireNonNull(config.get("STORAGE_ACCOUNT_NAME"),
                 "STORAGE_ACCOUNT_NAME must be set");
@@ -50,6 +55,8 @@ public class AppConfig {
     public String getOpenAIDeployment() { return openAIDeployment; }
     public String getOpenAIChatDeployment() { return openAIChatDeployment; }
     public String getOpenAIApiKey() { return openAIApiKey; }
+    public String getFluxEndpoint() { return fluxEndpoint; }
+    public String getFluxDeployment() { return fluxDeployment; }
     public String getStorageAccountName() { return storageAccountName; }
     public String getStorageContainerName() { return storageContainerName; }
     public TokenCredential getCredential() { return credential; }

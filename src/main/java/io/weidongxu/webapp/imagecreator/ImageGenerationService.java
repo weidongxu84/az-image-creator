@@ -19,19 +19,35 @@ public class ImageGenerationService {
     private OpenAIService openAIService;
 
     @Autowired
+    private FluxService fluxService;
+
+    @Autowired
     private StorageService storageService;
 
     @Autowired
     private JobStore jobStore;
 
     @Async
-    public void generateImage(String jobId, String prompt, String size,
+    public void generateImage(String jobId, String model, String prompt, String size,
                               List<byte[]> images, List<String> imageFilenames,
                               byte[] mask, String outputFormat, int n, String inputFidelity) {
         jobStore.setRunning(jobId);
+        boolean useFlux = fluxService.isConfigured() && isFluxModel(model);
+        log.info("Job {}: model={}, routed to {}, hasImages={}, size={}, format={}, n={}",
+                jobId, model, useFlux ? "FluxService" : "OpenAIService",
+                images != null && !images.isEmpty(), size, outputFormat, n);
         try {
             List<byte[]> imageDataList;
-            if (images != null && !images.isEmpty()) {
+            if (useFlux) {
+                // Route to FLUX.2 service
+                if (images != null && !images.isEmpty()) {
+                    log.info("Job {}: FLUX editing {} image(s), size={}, format={}, n={}", jobId, images.size(), size, outputFormat, n);
+                    imageDataList = fluxService.editImage(prompt, size, images, outputFormat, n);
+                } else {
+                    log.info("Job {}: FLUX generating new image, size={}, format={}, n={}", jobId, size, outputFormat, n);
+                    imageDataList = fluxService.generateImage(prompt, size, outputFormat, n);
+                }
+            } else if (images != null && !images.isEmpty()) {
                 log.info("Job {}: editing {} image(s), size={}, format={}, n={}, inputFidelity={}", jobId, images.size(), size, outputFormat, n, inputFidelity);
                 imageDataList = openAIService.editImage(prompt, size, images, imageFilenames, mask, outputFormat, n, inputFidelity);
             } else {
@@ -39,8 +55,9 @@ public class ImageGenerationService {
                 imageDataList = openAIService.generateImage(prompt, size, outputFormat, n);
             }
             List<String> blobNames = new ArrayList<>();
+            String uploadFormat = useFlux ? mapFluxOutputFormat(outputFormat) : outputFormat;
             for (byte[] imageData : imageDataList) {
-                String blobName = storageService.upload(imageData, prompt, outputFormat);
+                String blobName = storageService.upload(imageData, prompt, uploadFormat);
                 blobNames.add(blobName);
             }
             log.info("Job {}: completed, saved {} image(s): {}", jobId, blobNames.size(), blobNames);
@@ -59,6 +76,18 @@ public class ImageGenerationService {
             log.error("Job {}: unexpected error", jobId, e);
             jobStore.setFailed(jobId, "Internal error: " + e.getMessage());
         }
+    }
+
+    private boolean isFluxModel(String model) {
+        return model != null && model.toLowerCase().startsWith("flux");
+    }
+
+    /** FLUX only supports png and jpeg; webp falls back to png. */
+    private String mapFluxOutputFormat(String format) {
+        if ("jpeg".equalsIgnoreCase(format) || "jpg".equalsIgnoreCase(format)) {
+            return "jpeg";
+        }
+        return "png";
     }
 
     private String classifyOpenAIError(int status, String code, String detail) {

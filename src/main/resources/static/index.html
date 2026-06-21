@@ -188,6 +188,12 @@
 <!-- ─────────── GENERATE TAB ─────────── -->
 <div id="tab-generate" class="tab-panel active">
 
+  <label>Model</label>
+  <select id="model">
+    <option value="gpt-image-2" selected>GPT Image 2</option>
+    <option value="FLUX.2-pro">FLUX.2 Pro</option>
+  </select>
+
   <label>Prompt <span style="color:#64748b;font-size:.8rem">(required)</span></label>
   <textarea id="prompt" rows="4" placeholder="Describe the image you want to create…"></textarea>
 
@@ -423,6 +429,7 @@ async function startGeneration() {
 
   const formData = new FormData();
   formData.append('prompt', prompt);
+  formData.append('model', document.getElementById('model').value);
   const PREVIEW_SIZES = {
     '3264x2448': '1440x1088', '2448x3264': '1088x1440',
     '2880x2880': '1440x1440',
