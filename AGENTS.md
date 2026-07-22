@@ -41,6 +41,10 @@ git push origin main
 
 The GitHub Actions workflow (`.github/workflows/deploy.yml`) will trigger automatically on push to `main`.
 
+### Documentation
+
+When writing docs or markdown (including this file, `doc/`, and commit messages), always be concise. Prefer short sentences, tables, and bullet points over prose. Omit filler and repetition.
+
 ### 5. Wait for Deploy
 
 Monitor the GitHub Actions run at:
