@@ -24,7 +24,7 @@ public class FluxService {
 
     private static final Logger log = LoggerFactory.getLogger(FluxService.class);
     private static final String API_VERSION = "preview";
-    private static final int SAFETY_TOLERANCE = 2;
+    private static final int SAFETY_TOLERANCE = 4;
 
     private final AppConfig config;
     private final ObjectMapper objectMapper;
