@@ -39,7 +39,9 @@ git commit -m "<concise description of change>"
 git push origin main
 ```
 
-The GitHub Actions workflow (`.github/workflows/deploy.yml`) will trigger automatically on push to `main`.
+The GitHub Actions workflow (`.github/workflows/deploy.yml`) triggers on push to `main`, but **only** when files matching its `paths` allowlist change (currently `src/**`, `pom.xml`, and the workflow file). Docs-only and other non-app pushes are skipped.
+
+When adding any new **app-related** file that must be built or deployed (e.g. a new build input, `Dockerfile`, or config outside `src/`), add its path to the `paths` allowlist in `deploy.yml` — otherwise pushes touching only that file will not deploy. Use `workflow_dispatch` for a manual deploy.
 
 ### Documentation
 
