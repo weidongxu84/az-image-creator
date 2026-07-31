@@ -4,6 +4,7 @@ import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.models.TableEntity;
 import com.azure.data.tables.models.TableServiceException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -18,6 +19,10 @@ public class PromptStorageService {
 
     private final TableClient tableClient;
 
+    // Explicitly marked: PromptStorageService has a second (package-private, test-only)
+    // constructor below, which makes Spring's constructor autowiring ambiguous without
+    // this annotation — it was intermittently failing with "No default constructor found".
+    @Autowired
     public PromptStorageService(AppConfig config) {
         this(new TableClientBuilder()
                 .endpoint("https://" + config.getStorageAccountName() + ".table.core.windows.net")
