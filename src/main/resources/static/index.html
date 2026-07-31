@@ -601,8 +601,10 @@ const PAGE_SIZE = 6;
 function initBrowseMonth() {
   const input = document.getElementById('browse-month');
   const now = new Date();
-  input.value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  currentPrefix = now.getFullYear() + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/';
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  input.value = year + '-' + month;
+  currentPrefix = year + '/' + month + '/';
 }
 initBrowseMonth();
 
