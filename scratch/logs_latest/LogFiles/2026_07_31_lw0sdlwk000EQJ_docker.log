@@ -1,0 +1,101 @@
+2026-07-31T03:58:19.4307388Z State: Starting, Action: EstablishingSiteNetworks, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-07-31T03:58:26.2771235Z State: Starting, Action: StartingMsiContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-07-31T03:59:20.0491189Z State: Starting, Action: StartingSiteContainers, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-07-31T03:59:20.0510049Z Container start method called.
+2026-07-31T03:59:20.0513070Z State: Starting, Action: PullingImage, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pulling image 10.1.0.4:13209/azure-app-service/java:17.0.17-r260110 for az-image-creator., DetailsLevel: INFO
+2026-07-31T03:59:20.0590311Z Establishing network.
+2026-07-31T03:59:20.0596373Z Pulling image: azure-app-service/java:17.0.17-r260110.
+2026-07-31T03:59:20.4050157Z Container is starting.
+2026-07-31T03:59:20.4123527Z State: Starting, Action: MountingVolumes, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Mounting volumes for az-image-creator., DetailsLevel: INFO
+2026-07-31T03:59:20.4131449Z Establishing user namespace if not established already.
+2026-07-31T03:59:20.4133643Z Establishing network if not established already.
+2026-07-31T03:59:20.4220538Z Mounting volumes.
+2026-07-31T03:59:20.4224440Z Nested mountpoint 
+2026-07-31T03:59:20.4646073Z Nested mountpoint volatile/logs
+2026-07-31T03:59:20.5129371Z Nested mountpoint 
+2026-07-31T03:59:20.5344814Z Nested mountpoint 
+2026-07-31T03:59:20.9330346Z State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Finished pulling container image and mounting volumes for az-image-creator. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-07-31T03:59:20.9336392Z Creating container.
+2026-07-31T03:59:20.9346572Z Creating pipes for streaming container io.
+2026-07-31T03:59:20.9348462Z Creating stdout named pipe at /podr/container/pipe/0949a8b2597b_az-image-creator/stdout_107ddb3fdd614c2ba1c520bfeef9a208.
+2026-07-31T03:59:20.9524755Z Successfully created stdout named pipe at: /podr/container/pipe/0949a8b2597b_az-image-creator/stdout_107ddb3fdd614c2ba1c520bfeef9a208.
+2026-07-31T03:59:20.9526978Z Opening named pipe /podr/container/pipe/0949a8b2597b_az-image-creator/stdout_107ddb3fdd614c2ba1c520bfeef9a208 for reading in non-blocking mode.
+2026-07-31T03:59:20.9528564Z Successfully opened named pipe: /podr/container/pipe/0949a8b2597b_az-image-creator/stdout_107ddb3fdd614c2ba1c520bfeef9a208.
+2026-07-31T03:59:20.9529431Z Successfully removed non-blocking flag from /podr/container/pipe/0949a8b2597b_az-image-creator/stdout_107ddb3fdd614c2ba1c520bfeef9a208.
+2026-07-31T03:59:20.9530885Z Creating stderr named pipe at /podr/container/pipe/0949a8b2597b_az-image-creator/stderr_1ec13d0d88ff4de0871ba5afcc2cfba7.
+2026-07-31T03:59:20.9532363Z Successfully created stderr named pipe at: /podr/container/pipe/0949a8b2597b_az-image-creator/stderr_1ec13d0d88ff4de0871ba5afcc2cfba7.
+2026-07-31T03:59:20.9533080Z Opening named pipe /podr/container/pipe/0949a8b2597b_az-image-creator/stderr_1ec13d0d88ff4de0871ba5afcc2cfba7 for reading in non-blocking mode.
+2026-07-31T03:59:20.9537889Z Successfully opened named pipe: /podr/container/pipe/0949a8b2597b_az-image-creator/stderr_1ec13d0d88ff4de0871ba5afcc2cfba7.
+2026-07-31T03:59:20.9539224Z Successfully removed non-blocking flag from /podr/container/pipe/0949a8b2597b_az-image-creator/stderr_1ec13d0d88ff4de0871ba5afcc2cfba7.
+2026-07-31T03:59:20.9540721Z Creating container with image: azure-app-service/java:17.0.17-r260110 from registry: 10.1.0.4:13209 and fully qualified image name: 10.1.0.4:13209/azure-app-service/java:17.0.17-r260110
+2026-07-31T03:59:22.5193508Z Starting container: 0949a8b2597b_az-image-creator.
+2026-07-31T03:59:22.6231740Z Starting watchers and probes.
+2026-07-31T03:59:22.6516004Z Starting metrics collection.
+2026-07-31T03:59:22.6530504Z Container is running.
+2026-07-31T03:59:22.6719516Z State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container az-image-creator successfully created and is running., DetailsLevel: INFO
+2026-07-31T03:59:23.0831293Z Container start method finished after 3031 ms.
+2026-07-31T03:59:23.0938198Z State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container az-image-creator successfully created and is running., DetailsLevel: INFO
+2026-07-31T03:59:23.2359246Z State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-07-31T04:01:00.2389253Z Site startup probe succeeded after 96.923244 seconds.
+2026-07-31T04:01:01.1139375Z State: Starting, Action: WarmUpProbeSucceeded, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site startup probe succeeded after 96.923244 seconds., DetailsLevel: INFO
+2026-07-31T04:01:04.0528243Z Site is running with deployment version: 088a69e6-baff-4031-a560-2328107446e5
+2026-07-31T04:01:04.0610388Z Site started.
+2026-07-31T04:01:04.0613873Z State: Started, Action: None, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/31/2026 04:01:04 (UTC), DetailsLevel: INFO
+2026-07-31T04:01:04.0637893Z Site is running with patch version JAVA-17.0.17
+2026-07-31T04:01:25.6027454Z State: Stopping, Action: StoppingSite, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/22/2026 22:56:15 (UTC), DetailsLevel: INFO
+2026-07-31T04:01:25.6833816Z State: Stopping, Action: StoppingSiteContainers, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/22/2026 22:56:15 (UTC), DetailsLevel: INFO
+2026-07-31T04:01:30.5264469Z Site: az-image-creator stopped.
+2026-07-31T04:04:36.3422137Z State: Starting, Action: EstablishingSiteNetworks, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-07-31T04:04:43.2423001Z State: Starting, Action: StartingMsiContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-07-31T04:05:48.0169585Z State: Starting, Action: StartingSiteContainers, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: , DetailsLevel: INFO
+2026-07-31T04:05:48.0228253Z Container start method called.
+2026-07-31T04:05:48.0235881Z State: Starting, Action: PullingImage, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pulling image 10.1.0.6:13209/azure-app-service/java:17.0.17-r260110 for az-image-creator., DetailsLevel: INFO
+2026-07-31T04:05:48.0253039Z Establishing network.
+2026-07-31T04:05:48.0331721Z Pulling image: azure-app-service/java:17.0.17-r260110.
+2026-07-31T04:05:49.1428553Z Image azure-app-service/java:17.0.17-r260110 is pulled from registry 10.1.0.6:13209
+2026-07-31T04:05:49.1523821Z Container is starting.
+2026-07-31T04:05:49.1525319Z State: Starting, Action: MountingVolumes, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Mounting volumes for az-image-creator., DetailsLevel: INFO
+2026-07-31T04:05:49.1529634Z Establishing user namespace if not established already.
+2026-07-31T04:05:49.1612459Z Establishing network if not established already.
+2026-07-31T04:05:49.1615861Z Mounting volumes.
+2026-07-31T04:05:49.1703701Z Nested mountpoint 
+2026-07-31T04:05:49.4452199Z Nested mountpoint volatile/logs
+2026-07-31T04:05:49.4638803Z Nested mountpoint 
+2026-07-31T04:05:49.5337317Z Nested mountpoint 
+2026-07-31T04:05:49.6161504Z State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Finished pulling container image and mounting volumes for az-image-creator. Allocatinng the rest of the container resources to finish container creation., DetailsLevel: INFO
+2026-07-31T04:05:49.6162501Z Creating container.
+2026-07-31T04:05:49.6163315Z Creating pipes for streaming container io.
+2026-07-31T04:05:49.6164060Z Creating stdout named pipe at /podr/container/pipe/931d4acb98ab_az-image-creator/stdout_ac14917a27a542a084c0982ab74a844b.
+2026-07-31T04:05:49.6165741Z Successfully created stdout named pipe at: /podr/container/pipe/931d4acb98ab_az-image-creator/stdout_ac14917a27a542a084c0982ab74a844b.
+2026-07-31T04:05:49.6166584Z Opening named pipe /podr/container/pipe/931d4acb98ab_az-image-creator/stdout_ac14917a27a542a084c0982ab74a844b for reading in non-blocking mode.
+2026-07-31T04:05:49.7361210Z Successfully opened named pipe: /podr/container/pipe/931d4acb98ab_az-image-creator/stdout_ac14917a27a542a084c0982ab74a844b.
+2026-07-31T04:05:49.7365321Z Successfully removed non-blocking flag from /podr/container/pipe/931d4acb98ab_az-image-creator/stdout_ac14917a27a542a084c0982ab74a844b.
+2026-07-31T04:05:49.7369943Z Creating stderr named pipe at /podr/container/pipe/931d4acb98ab_az-image-creator/stderr_0c9b923f894d47ae8e9718ce49babbfd.
+2026-07-31T04:05:49.7371733Z Successfully created stderr named pipe at: /podr/container/pipe/931d4acb98ab_az-image-creator/stderr_0c9b923f894d47ae8e9718ce49babbfd.
+2026-07-31T04:05:49.7372535Z Opening named pipe /podr/container/pipe/931d4acb98ab_az-image-creator/stderr_0c9b923f894d47ae8e9718ce49babbfd for reading in non-blocking mode.
+2026-07-31T04:05:49.8065743Z Successfully opened named pipe: /podr/container/pipe/931d4acb98ab_az-image-creator/stderr_0c9b923f894d47ae8e9718ce49babbfd.
+2026-07-31T04:05:49.8071840Z Successfully removed non-blocking flag from /podr/container/pipe/931d4acb98ab_az-image-creator/stderr_0c9b923f894d47ae8e9718ce49babbfd.
+2026-07-31T04:05:49.8173250Z Creating container with image: azure-app-service/java:17.0.17-r260110 from registry: 10.1.0.6:13209 and fully qualified image name: 10.1.0.6:13209/azure-app-service/java:17.0.17-r260110
+2026-07-31T04:05:54.4254296Z Starting container: 931d4acb98ab_az-image-creator.
+2026-07-31T04:05:54.7571597Z Starting watchers and probes.
+2026-07-31T04:05:54.7796643Z Starting metrics collection.
+2026-07-31T04:05:54.9405976Z Container is running.
+2026-07-31T04:05:55.0605625Z State: Starting, Action: CreatingContainer, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container az-image-creator successfully created and is running., DetailsLevel: INFO
+2026-07-31T04:05:56.2891050Z Container start method finished after 8248 ms.
+2026-07-31T04:05:56.3007136Z State: Starting, Action: InitiatingSiteWarmUpProbe, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Container az-image-creator successfully created and is running., DetailsLevel: INFO
+2026-07-31T04:05:56.3117355Z State: Starting, Action: WaitingForSiteWarmUpProbeSuccess, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Pinging warmup path to ensure container is ready to receive requests., DetailsLevel: INFO
+2026-07-31T04:07:59.6762232Z Site startup probe succeeded after 123.2359908 seconds.
+2026-07-31T04:08:00.5748093Z State: Starting, Action: WarmUpProbeSucceeded, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site startup probe succeeded after 123.2359908 seconds., DetailsLevel: INFO
+2026-07-31T04:08:04.2148283Z Site is running with deployment version: 088a69e6-baff-4031-a560-2328107446e5
+2026-07-31T04:08:04.3064112Z Site started.
+2026-07-31T04:08:04.3148295Z State: Started, Action: None, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/31/2026 04:08:04 (UTC), DetailsLevel: INFO
+2026-07-31T04:08:04.3271847Z Site is running with patch version JAVA-17.0.17
+2026-07-31T04:08:26.0801526Z State: Stopping, Action: StoppingSite, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/31/2026 04:01:04 (UTC), DetailsLevel: INFO
+2026-07-31T04:08:26.0904838Z State: Stopping, Action: StoppingSiteContainers, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/31/2026 04:01:04 (UTC), DetailsLevel: INFO
+2026-07-31T04:08:26.0920391Z Container is terminating. Grace period: 5 seconds.
+2026-07-31T04:08:26.1703873Z Stop and delete container. Retry count = 0
+2026-07-31T04:08:26.1717590Z Stopping container: 0949a8b2597b_az-image-creator.
+2026-07-31T04:08:27.4409868Z Deleting container: 0949a8b2597b_az-image-creator. Retry count = 0
+2026-07-31T04:08:27.9667150Z Container spec TerminationMessagePolicy  path 
+2026-07-31T04:08:27.9750827Z Container is terminated. Total time elapsed: 1873 ms.
+2026-07-31T04:08:29.3156924Z Site: az-image-creator stopped.

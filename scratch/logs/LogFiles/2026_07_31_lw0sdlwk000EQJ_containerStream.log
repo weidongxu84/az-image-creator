@@ -1,0 +1,55 @@
+2026-07-31T03:10:43.5036893Z 2026-07-31T03:10:43.475Z  INFO 70 --- [az-image-creator] [    image-gen-3] i.w.w.i.ImageGenerationService           : Job 6c195385-2fca-4cb0-8976-7c35346170f5: model=gpt-image-2, routed to OpenAIService, hasImages=true, size=1088x1440, format=png, n=1
+2026-07-31T03:10:43.5082852Z 2026-07-31T03:10:43.505Z  INFO 70 --- [az-image-creator] [p-nio-80-exec-3] i.w.webapp.imagecreator.ImageController  : Started job 6c195385-2fca-4cb0-8976-7c35346170f5 for prompt: *Task**: Create a Realistic Cosplay Photo
+2026-07-31T03:10:43.5082993Z 
+2026-07-31T03:10:43.5083365Z **Character**: Shirokane Rinko from…
+2026-07-31T03:10:43.5830067Z 2026-07-31T03:10:43.582Z  INFO 70 --- [az-image-creator] [    image-gen-3] i.w.w.i.ImageGenerationService           : Job 6c195385-2fca-4cb0-8976-7c35346170f5: editing 1 image(s), size=1088x1440, format=png, n=1, inputFidelity=low
+2026-07-31T03:10:43.5930364Z 2026-07-31T03:10:43.592Z  INFO 70 --- [az-image-creator] [    image-gen-3] i.w.webapp.imagecreator.OpenAIService    : editImage: 1 image(s), first='body_19.png' bytes=365815, size=1088x1440, format=png, inputFidelity=low
+2026-07-31T03:10:43.9234269Z 2026-07-31T03:10:43.922Z ERROR 70 --- [az-image-creator] [    image-gen-3] c.azure.identity.EnvironmentCredential   : EnvironmentCredential authentication unavailable. Environment variables are not fully configured.To mitigate this issue, please refer to the troubleshooting guidelines here at https://aka.ms/azsdk/java/identity/environmentcredential/troubleshoot
+2026-07-31T03:10:43.9234937Z EnvironmentCredential authentication unavailable. Environment variables are not fully configured.To mitigate this issue, please refer to the troubleshooting guidelines here at https://aka.ms/azsdk/java/identity/environmentcredential/troubleshoot
+2026-07-31T03:10:43.9350430Z 2026-07-31T03:10:43.934Z  INFO 70 --- [az-image-creator] [    image-gen-3] c.azure.identity.ChainedTokenCredential  : Azure Identity => Attempted credential EnvironmentCredential is unavailable.
+2026-07-31T03:10:44.0312294Z 2026-07-31T03:10:44.029Z  INFO 70 --- [az-image-creator] [obal-thread-101] c.a.identity.ManagedIdentityCredential   : Azure Identity => Managed Identity environment: Managed Identity
+2026-07-31T03:10:44.0334729Z 2026-07-31T03:10:44.033Z  INFO 70 --- [az-image-creator] [obal-thread-101] c.azure.identity.ChainedTokenCredential  : Azure Identity => Attempted credential ManagedIdentityCredential returns a token
+2026-07-31T03:10:49.1164758Z 2026-07-31T03:10:49.115Z  INFO 70 --- [az-image-creator] [p-nio-80-exec-9] i.w.webapp.imagecreator.ImageController  : Started job 1032cdec-83c2-4628-bead-3936c64e7137 for prompt: *Task**: Create a Realistic Cosplay Photo
+2026-07-31T03:10:49.1165327Z 
+2026-07-31T03:10:49.1165366Z **Character**: Imai Lisa from Rosel…
+2026-07-31T03:10:49.1236398Z 2026-07-31T03:10:49.123Z  INFO 70 --- [az-image-creator] [    image-gen-1] i.w.w.i.ImageGenerationService           : Job 1032cdec-83c2-4628-bead-3936c64e7137: model=gpt-image-2, routed to OpenAIService, hasImages=true, size=1088x1440, format=png, n=1
+2026-07-31T03:10:49.1245459Z 2026-07-31T03:10:49.124Z  INFO 70 --- [az-image-creator] [    image-gen-1] i.w.w.i.ImageGenerationService           : Job 1032cdec-83c2-4628-bead-3936c64e7137: editing 1 image(s), size=1088x1440, format=png, n=1, inputFidelity=low
+2026-07-31T03:10:49.1309310Z 2026-07-31T03:10:49.125Z  INFO 70 --- [az-image-creator] [    image-gen-1] i.w.webapp.imagecreator.OpenAIService    : editImage: 1 image(s), first='body_17.png' bytes=396349, size=1088x1440, format=png, inputFidelity=low
+2026-07-31T03:10:49.1819110Z 2026-07-31T03:10:49.180Z ERROR 70 --- [az-image-creator] [    image-gen-1] c.azure.identity.EnvironmentCredential   : EnvironmentCredential authentication unavailable. Environment variables are not fully configured.To mitigate this issue, please refer to the troubleshooting guidelines here at https://aka.ms/azsdk/java/identity/environmentcredential/troubleshoot
+2026-07-31T03:10:49.1819708Z EnvironmentCredential authentication unavailable. Environment variables are not fully configured.To mitigate this issue, please refer to the troubleshooting guidelines here at https://aka.ms/azsdk/java/identity/environmentcredential/troubleshoot
+2026-07-31T03:10:49.1889151Z 2026-07-31T03:10:49.183Z  INFO 70 --- [az-image-creator] [    image-gen-1] c.azure.identity.ChainedTokenCredential  : Azure Identity => Attempted credential EnvironmentCredential is unavailable.
+2026-07-31T03:10:49.2502095Z 2026-07-31T03:10:49.240Z  INFO 70 --- [az-image-creator] [    image-gen-1] c.a.identity.ManagedIdentityCredential   : Azure Identity => Managed Identity environment: Managed Identity
+2026-07-31T03:10:49.2511229Z 2026-07-31T03:10:49.251Z  INFO 70 --- [az-image-creator] [    image-gen-1] c.azure.identity.ChainedTokenCredential  : Azure Identity => Attempted credential ManagedIdentityCredential returns a token
+2026-07-31T03:13:10.2120022Z 2026-07-31T03:13:10.194Z  INFO 70 --- [az-image-creator] [    image-gen-1] i.w.w.i.ImageGenerationService           : Job 1032cdec-83c2-4628-bead-3936c64e7137: completed, saved 1 image(s): [2026/07/31/image_20260731_031309_451.png]
+2026-07-31T03:13:17.4287219Z 2026-07-31T03:13:17.428Z  INFO 70 --- [az-image-creator] [    image-gen-3] i.w.w.i.ImageGenerationService           : Job 6c195385-2fca-4cb0-8976-7c35346170f5: completed, saved 1 image(s): [2026/07/31/image_20260731_031317_326.png]
+2026-07-31T03:33:40.9277604Z 2026-07-31T03:33:40.917Z  INFO 70 --- [az-image-creator] [p-nio-80-exec-5] i.w.webapp.imagecreator.ImageController  : Started job 2ff04490-f4f9-4073-8277-f84bdecf2073 for prompt: *Task**: Create a Realistic Cosplay Photo
+2026-07-31T03:33:40.9281251Z 
+2026-07-31T03:33:40.9281298Z **Character**: Methode from Frieren…
+2026-07-31T03:33:40.9360923Z 2026-07-31T03:33:40.935Z  INFO 70 --- [az-image-creator] [    image-gen-2] i.w.w.i.ImageGenerationService           : Job 2ff04490-f4f9-4073-8277-f84bdecf2073: model=gpt-image-2, routed to OpenAIService, hasImages=true, size=1088x1440, format=png, n=1
+2026-07-31T03:33:40.9384875Z 2026-07-31T03:33:40.937Z  INFO 70 --- [az-image-creator] [    image-gen-2] i.w.w.i.ImageGenerationService           : Job 2ff04490-f4f9-4073-8277-f84bdecf2073: editing 1 image(s), size=1088x1440, format=png, n=1, inputFidelity=low
+2026-07-31T03:33:40.9481234Z 2026-07-31T03:33:40.947Z  INFO 70 --- [az-image-creator] [    image-gen-2] i.w.webapp.imagecreator.OpenAIService    : editImage: 1 image(s), first='Methode_anime_profile.webp' bytes=43394, size=1088x1440, format=png, inputFidelity=low
+2026-07-31T03:33:40.9648976Z 2026-07-31T03:33:40.957Z ERROR 70 --- [az-image-creator] [    image-gen-2] c.azure.identity.EnvironmentCredential   : EnvironmentCredential authentication unavailable. Environment variables are not fully configured.To mitigate this issue, please refer to the troubleshooting guidelines here at https://aka.ms/azsdk/java/identity/environmentcredential/troubleshoot
+2026-07-31T03:33:40.9649279Z EnvironmentCredential authentication unavailable. Environment variables are not fully configured.To mitigate this issue, please refer to the troubleshooting guidelines here at https://aka.ms/azsdk/java/identity/environmentcredential/troubleshoot
+2026-07-31T03:33:40.9669717Z 2026-07-31T03:33:40.966Z  INFO 70 --- [az-image-creator] [    image-gen-2] c.azure.identity.ChainedTokenCredential  : Azure Identity => Attempted credential EnvironmentCredential is unavailable.
+2026-07-31T03:33:41.0227506Z 2026-07-31T03:33:41.022Z  INFO 70 --- [az-image-creator] [obal-thread-103] c.a.identity.ManagedIdentityCredential   : Azure Identity => Managed Identity environment: Managed Identity
+2026-07-31T03:33:41.0285684Z 2026-07-31T03:33:41.028Z  INFO 70 --- [az-image-creator] [obal-thread-103] c.azure.identity.ChainedTokenCredential  : Azure Identity => Attempted credential ManagedIdentityCredential returns a token
+2026-07-31T03:35:53.3583699Z 2026-07-31T03:35:53.339Z  INFO 70 --- [az-image-creator] [    image-gen-2] i.w.w.i.ImageGenerationService           : Job 2ff04490-f4f9-4073-8277-f84bdecf2073: completed, saved 1 image(s): [2026/07/31/image_20260731_033552_083.png]
+2026-07-31T04:01:26.9906603Z [Previous Container] Received signal SIGTERM
+2026-07-31T04:01:26.9907707Z [Previous Container] Sending SIGTERM to main process. Child Process ID: 70
+2026-07-31T04:01:28.3720039Z [Previous Container] Exception in thread "SpringApplicationShutdownHook" java.lang.NoClassDefFoundError: ch/qos/logback/classic/spi/ThrowableProxy
+2026-07-31T04:01:28.3737595Z [Previous Container] 	at ch.qos.logback.classic.spi.LoggingEvent.<init>(LoggingEvent.java:145)
+2026-07-31T04:01:28.3740731Z [Previous Container] 	at ch.qos.logback.classic.Logger.buildLoggingEventAndAppend(Logger.java:429)
+2026-07-31T04:01:28.3740820Z [Previous Container] 	at ch.qos.logback.classic.Logger.filterAndLog_0_Or3Plus(Logger.java:388)
+2026-07-31T04:01:28.3740842Z [Previous Container] 	at ch.qos.logback.classic.Logger.log(Logger.java:805)
+2026-07-31T04:01:28.3740861Z [Previous Container] 	at org.apache.commons.logging.impl.Slf4jLogFactory$Slf4jLocationAwareLog.log(Slf4jLogFactory.java:126)
+2026-07-31T04:01:28.3740912Z [Previous Container] 	at org.apache.commons.logging.impl.Slf4jLogFactory$Slf4jLocationAwareLog.warn(Slf4jLogFactory.java:146)
+2026-07-31T04:01:28.3805257Z [Previous Container] 	at org.springframework.context.support.AbstractApplicationContext.doClose(AbstractApplicationContext.java:1171)
+2026-07-31T04:01:28.3805398Z [Previous Container] 	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.doClose(ServletWebServerApplicationContext.java:176)
+2026-07-31T04:01:28.3805420Z [Previous Container] 	at org.springframework.context.support.AbstractApplicationContext.close(AbstractApplicationContext.java:1122)
+2026-07-31T04:01:28.3805447Z [Previous Container] 	at org.springframework.boot.SpringApplicationShutdownHook.closeAndWait(SpringApplicationShutdownHook.java:147)
+2026-07-31T04:01:28.3805464Z [Previous Container] 	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+2026-07-31T04:01:28.3805501Z [Previous Container] 	at org.springframework.boot.SpringApplicationShutdownHook.run(SpringApplicationShutdownHook.java:116)
+2026-07-31T04:01:28.3805550Z [Previous Container] 	at java.base/java.lang.Thread.run(Thread.java:840)
+2026-07-31T04:01:28.3805569Z [Previous Container] Caused by: java.lang.ClassNotFoundException: ch.qos.logback.classic.spi.ThrowableProxy
+2026-07-31T04:01:28.3805583Z [Previous Container] 	... 13 more
+2026-07-31T04:01:28.8899927Z [Previous Container] Done processing signal SIGTERM. Exiting now!

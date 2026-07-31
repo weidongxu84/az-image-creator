@@ -1,0 +1,14 @@
+<step title="Incoming Request" date="2026-06-19T07:34:17.270" instance="4956fd" url="/api/publish?async=true&amp;deployer=GITHUB_ONE_DEPLOY&amp;type=jar&amp;message=%7B%22type%22%3A%22deployment%22%2C%22sha%22%3A%224b8d09671bc4bfa1da06ebb58526a0d5b4289984%22%2C%22repoName%22%3A%22weidongxu84%2Faz-image-creator%22%2C%22actor%22%3A%22weidongxu84%22%2C%22slotName%22%3A%22production%22%2C%22commitMessage%22%3A%22Auto-resize%20textareas%20to%20grow%20with%20content%22%7D" method="POST" type="request" pid="833,1,43" Host="az-image-creator.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_46696f8de2e2a102c4f9c97573138d2eb2afe5f1d23efa37996cb6bd2a75f23a_v3.0.8" Authorization="Bas..." Content-Type="application/octet-stream" Cookie="ARRAffinity=4956fd0f71e6a2c01e79df39cf93832dc1b88322e9676900fc844a8843ac6026;Path=/;HttpOnly;Secure;Domain=az-image-creator.scm.azurewebsites.net; ARRAffinitySameSite=4956fd0f71e6a2c01e79df39cf93832dc1b88322e9676900fc844a8843ac6026;Path=/;HttpOnly;SameSite=None;Secure;Domain=az-image-creator.scm.azurewebsites.net" Transfer-Encoding="chunked" X-ARR-LOG-ID="af3dbf04-eff5-47a6-b87b-620da38b3b33" CLIENT-IP="40.65.61.147:43008" X-SITE-DEPLOYMENT-ID="az-image-creator" WAS-DEFAULT-HOSTNAME="az-image-creator.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/publish?async=true&amp;deployer=GITHUB_ONE_DEPLOY&amp;type=jar&amp;message=%7B%22type%22%3A%22deployment%22%2C%22sha%22%3A%224b8d09671bc4bfa1da06ebb58526a0d5b4289984%22%2C%22repoName%22%3A%22weidongxu84%2Faz-image-creator%22%2C%22actor%22%3A%22weidongxu84%22%2C%22slotName%22%3A%22production%22%2C%22commitMessage%22%3A%22Auto-resize%20textareas%20to%20grow%20with%20content%22%7D" X-Client-IP="40.65.61.147" X-Client-Port="43008" >
+  <step title="OneDeploy" date="2026-06-19T07:34:17.301" >
+    <step title="Starting PushDeployAsync" date="2026-06-19T07:34:17.317" /><!-- duration: 7ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/app.jar" date="2026-06-19T07:34:17.360" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/app.jar" date="2026-06-19T07:34:17.380" /><!-- duration: 18ms -->
+      <step title="Writing zip file to /tmp/zipdeploy/app.jar" date="2026-06-19T07:34:17.422" /><!-- duration: 3793ms -->
+    </step><!-- duration: 3872ms -->
+    <step title="Start deployment in the background" date="2026-06-19T07:34:21.261" >
+      <step title="Acquiring Deployment Lock" date="2026-06-19T07:34:21.336" /><!-- duration: 6ms -->
+      <step title="Acquired Deployment Lock" date="2026-06-19T07:34:21.407" /><!-- duration: 11ms -->
+    </step><!-- duration: 279ms -->
+  </step><!-- duration: 4275ms -->
+  <step title="Outgoing response" date="2026-06-19T07:34:21.584" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 12ms -->
+</step><!-- duration: 4339ms -->

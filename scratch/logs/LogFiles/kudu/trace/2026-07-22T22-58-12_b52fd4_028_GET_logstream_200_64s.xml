@@ -1,0 +1,5 @@
+<step title="Incoming Request" date="2026-07-22T22:58:12.164" instance="b52fd4" url="/logstream" method="GET" type="request" pid="832,1,18" Host="az-image-creator.scm.azurewebsites.net" User-Agent="AZURECLI/2.86.0 (MSI)" Accept-Encoding="identity" Authorization="Bas..." x-ms-client-request-id="ca4fca15-8620-11f1-bd0c-c4c6e6112e80" X-ARR-LOG-ID="ca4fca15-8620-11f1-bd0c-c4c6e6112e80" CLIENT-IP="167.220.255.47:6209" X-SITE-DEPLOYMENT-ID="az-image-creator" WAS-DEFAULT-HOSTNAME="az-image-creator.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/logstream" X-Client-IP="167.220.255.47" X-Client-Port="6209" >
+  <step title="LogStreamHandlerMiddleware.Invoke" date="2026-07-22T22:58:12.183" /><!-- duration: 3472ms -->
+  <step title="Error occurred" date="2026-07-22T22:59:15.657" type="error" text="LogStreamManager: ProcessRequest end" /><!-- duration: 1ms -->
+  <step title="Outgoing response" date="2026-07-22T22:59:15.662" type="response" statusCode="200" statusText="OK" /><!-- duration: 1ms -->
+</step><!-- duration: 63501ms -->
