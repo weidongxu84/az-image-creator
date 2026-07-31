@@ -1,3 +1,0 @@
-2026-07-31T04:01:25.6027454Z State: Stopping, Action: StoppingSite, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/22/2026 22:56:15 (UTC), DetailsLevel: INFO
-2026-07-31T04:01:25.6833816Z State: Stopping, Action: StoppingSiteContainers, LastError: , LastErrorTimestamp: 01/01/0001 00:00:00, LastErrorDetails: , Details: Site started at 07/22/2026 22:56:15 (UTC), DetailsLevel: INFO
-2026-07-31T04:01:30.5264469Z Site: az-image-creator stopped.

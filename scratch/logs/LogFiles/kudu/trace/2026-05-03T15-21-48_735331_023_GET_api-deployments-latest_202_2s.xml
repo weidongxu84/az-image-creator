@@ -1,8 +1,0 @@
-<step title="Incoming Request" date="2026-05-03T15:21:48.960" instance="735331" url="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-05-03_15-21-48Z" method="GET" type="request" pid="834,1,23" Host="az-image-creator.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_46696f8de2e2a102c4f9c97573138d2eb2afe5f1d23efa37996cb6bd2a75f23a_v3.0.8" Authorization="Bas..." Content-Type="application/json; charset=utf-8" Cookie="ARRAffinity=7353315aad0b947552dc061185df9dc8033cb6fa0c8b6f099d85732bd64a492c;Path=/;HttpOnly;Secure;Domain=az-image-creator.scm.azurewebsites.net; ARRAffinitySameSite=7353315aad0b947552dc061185df9dc8033cb6fa0c8b6f099d85732bd64a492c;Path=/;HttpOnly;SameSite=None;Secure;Domain=az-image-creator.scm.azurewebsites.net" Content-Length="0" X-ARR-LOG-ID="44d6d9f8-77f7-4e32-afb2-3d527d5655e2" CLIENT-IP="13.83.161.87:10296" X-SITE-DEPLOYMENT-ID="az-image-creator" WAS-DEFAULT-HOSTNAME="az-image-creator.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-05-03_15-21-48Z" X-Client-IP="13.83.161.87" X-Client-Port="10296" >
-  <step title="DeploymentService.GetResult" date="2026-05-03T15:21:49.051" >
-    <step title="DeploymentService.GetLatestDeployment" date="2026-05-03T15:21:49.082" >
-      <step title="DeploymentManager.GetResults" date="2026-05-03T15:21:49.120" /><!-- duration: 1278ms -->
-    </step><!-- duration: 1345ms -->
-  </step><!-- duration: 1497ms -->
-  <step title="Outgoing response" date="2026-05-03T15:21:50.667" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 515ms -->
-</step><!-- duration: 2340ms -->
