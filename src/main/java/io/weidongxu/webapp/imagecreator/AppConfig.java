@@ -22,6 +22,7 @@ public class AppConfig {
     private final String fluxDeployment;
     private final String storageAccountName;
     private final String storageContainerName;
+    private final String storagePromptTableName;
     private final TokenCredential credential;
 
     public AppConfig() {
@@ -42,6 +43,7 @@ public class AppConfig {
         storageAccountName = Objects.requireNonNull(config.get("STORAGE_ACCOUNT_NAME"),
                 "STORAGE_ACCOUNT_NAME must be set");
         storageContainerName = config.get("STORAGE_CONTAINER_NAME", "images");
+        storagePromptTableName = config.get("STORAGE_PROMPT_TABLE_NAME", "imageprompts");
 
         credential = new ChainedTokenCredentialBuilder()
                 .addLast(new EnvironmentCredentialBuilder().build())
@@ -59,5 +61,6 @@ public class AppConfig {
     public String getFluxDeployment() { return fluxDeployment; }
     public String getStorageAccountName() { return storageAccountName; }
     public String getStorageContainerName() { return storageContainerName; }
+    public String getStoragePromptTableName() { return storagePromptTableName; }
     public TokenCredential getCredential() { return credential; }
 }

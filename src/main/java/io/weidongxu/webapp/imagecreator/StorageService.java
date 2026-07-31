@@ -13,16 +13,17 @@ import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.azure.core.util.BinaryData;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,18 +31,21 @@ import java.util.stream.Collectors;
 @Service
 public class StorageService {
 
+    private static final Logger log = LoggerFactory.getLogger(StorageService.class);
     private final BlobServiceClient serviceClient;
     private final BlobContainerClient containerClient;
+    private final PromptStorageService promptStorageService;
 
-    public StorageService(AppConfig config) {
+    public StorageService(AppConfig config, PromptStorageService promptStorageService) {
         this.serviceClient = new BlobServiceClientBuilder()
                 .endpoint("https://" + config.getStorageAccountName() + ".blob.core.windows.net")
                 .credential(config.getCredential())
                 .buildClient();
         this.containerClient = serviceClient.getBlobContainerClient(config.getStorageContainerName());
+        this.promptStorageService = promptStorageService;
     }
 
-    public String upload(byte[] imageData, String prompt, String outputFormat) {
+    public String upload(byte[] imageData, String outputFormat) {
         String ext = switch (outputFormat == null ? "png" : outputFormat.toLowerCase()) {
             case "jpeg" -> ".jpg";
             case "webp" -> ".webp";
@@ -53,32 +57,21 @@ public class StorageService {
             default -> "image/png";
         };
 
-        LocalDateTime now = LocalDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         String datePrefix = now.format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         String blobName = datePrefix + "/image_"
                 + now.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
                 + ext;
 
-        Map<String, String> metadata = new HashMap<>();
-        if (prompt != null && !prompt.isBlank()) {
-            String encoded = URLEncoder.encode(prompt, StandardCharsets.UTF_8);
-            // Azure blob metadata limit is 8 KiB total. If encoded prompt exceeds limit, truncate original and re-encode.
-            if (encoded.length() > 7500) {
-                String truncated = prompt.length() > 4000 ? prompt.substring(0, 4000) : prompt;
-                encoded = URLEncoder.encode(truncated, StandardCharsets.UTF_8);
-            }
-            metadata.put("prompt", encoded);
-        }
-
         BlobParallelUploadOptions options = new BlobParallelUploadOptions(BinaryData.fromBytes(imageData))
-                .setHeaders(new BlobHttpHeaders().setContentType(contentType))
-                .setMetadata(metadata);
+                .setHeaders(new BlobHttpHeaders().setContentType(contentType));
 
         containerClient.getBlobClient(blobName).uploadWithResponse(options, null, null);
         return blobName;
     }
 
     public List<ImageInfo> listImages(String prefix) {
+        Map<String, String> storedPrompts = loadStoredPrompts();
         ListBlobsOptions options = new ListBlobsOptions()
                 .setDetails(new BlobListDetails().setRetrieveMetadata(true));
         if (prefix != null && !prefix.isBlank()) {
@@ -92,16 +85,34 @@ public class StorageService {
                 .map(item -> new ImageInfo(
                         item.getName(),
                         item.getProperties().getLastModified().toString(),
-                        decodePrompt(item.getMetadata())))
+                        storedPrompts.containsKey(item.getName())
+                                ? storedPrompts.get(item.getName())
+                                : decodePrompt(item.getMetadata())))
                 .collect(Collectors.toList());
+    }
+
+    private Map<String, String> loadStoredPrompts() {
+        try {
+            return promptStorageService.listPrompts();
+        } catch (Exception e) {
+            log.error("Prompt table unavailable; using legacy blob metadata", e);
+            return Collections.emptyMap();
+        }
     }
 
     public byte[] download(String blobName) {
         return containerClient.getBlobClient(blobName).downloadContent().toBytes();
     }
 
-    public void delete(String blobName) {
-        containerClient.getBlobClient(blobName).delete();
+    public boolean delete(String blobName) {
+        boolean blobDeleted = containerClient.getBlobClient(blobName).deleteIfExists();
+        boolean promptDeleted = false;
+        try {
+            promptDeleted = promptStorageService.delete(blobName);
+        } catch (Exception e) {
+            log.error("Image {} deleted from blob storage, but prompt cleanup failed", blobName, e);
+        }
+        return blobDeleted || promptDeleted;
     }
 
     public String generateSasUrl(String blobName) {

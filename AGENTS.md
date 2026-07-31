@@ -93,7 +93,10 @@ pom.xml               - Maven build
 
 ## Important Constraints
 
+- The generated image is the primary asset. Metadata failures must not block image creation, listing, download, UI display, or deletion.
+- The UI must display valid images even when prompt metadata is missing or unavailable.
 - Do **not** hardcode credentials, API keys, or secrets in source code.
 - Do **not** change the managed identity RBAC assignments without documenting the change.
 - All communication with Azure services (Blob Storage, OpenAI) must go through managed identity in production.
 - The blob container is private — do not change its access level.
+- Image prompts use the `imageprompts` table in `azimagecreator`. The App Service identity has `Storage Table Data Contributor` on that account.

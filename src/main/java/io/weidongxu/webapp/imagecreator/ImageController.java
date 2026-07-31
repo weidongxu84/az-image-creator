@@ -194,8 +194,9 @@ public class ImageController {
         // Strip leading slash from {*name} capture
         if (name.startsWith("/")) name = name.substring(1);
         try {
-            storageService.delete(name);
-            return ResponseEntity.noContent().build();
+            return storageService.delete(name)
+                    ? ResponseEntity.noContent().build()
+                    : ResponseEntity.notFound().build();
         } catch (BlobStorageException e) {
             log.warn("Image not found for delete: {}", name);
             return ResponseEntity.notFound().build();

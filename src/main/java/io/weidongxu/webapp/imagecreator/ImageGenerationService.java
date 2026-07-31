@@ -3,7 +3,6 @@ package io.weidongxu.webapp.imagecreator;
 import com.openai.errors.OpenAIServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -15,17 +14,23 @@ public class ImageGenerationService {
 
     private static final Logger log = LoggerFactory.getLogger(ImageGenerationService.class);
 
-    @Autowired
-    private OpenAIService openAIService;
+    private final OpenAIService openAIService;
+    private final FluxService fluxService;
+    private final StorageService storageService;
+    private final PromptStorageService promptStorageService;
+    private final JobStore jobStore;
+    private final AppConfig config;
 
-    @Autowired
-    private FluxService fluxService;
-
-    @Autowired
-    private StorageService storageService;
-
-    @Autowired
-    private JobStore jobStore;
+    public ImageGenerationService(OpenAIService openAIService, FluxService fluxService,
+                                  StorageService storageService, PromptStorageService promptStorageService,
+                                  JobStore jobStore, AppConfig config) {
+        this.openAIService = openAIService;
+        this.fluxService = fluxService;
+        this.storageService = storageService;
+        this.promptStorageService = promptStorageService;
+        this.jobStore = jobStore;
+        this.config = config;
+    }
 
     @Async
     public void generateImage(String jobId, String model, String prompt, String size,
@@ -36,6 +41,7 @@ public class ImageGenerationService {
         log.info("Job {}: model={}, routed to {}, hasImages={}, size={}, format={}, n={}",
                 jobId, model, useFlux ? "FluxService" : "OpenAIService",
                 images != null && !images.isEmpty(), size, outputFormat, n);
+        List<String> blobNames = new ArrayList<>();
         try {
             List<byte[]> imageDataList;
             if (useFlux) {
@@ -54,11 +60,22 @@ public class ImageGenerationService {
                 log.info("Job {}: generating new image, size={}, format={}, n={}", jobId, size, outputFormat, n);
                 imageDataList = openAIService.generateImage(prompt, size, outputFormat, n);
             }
-            List<String> blobNames = new ArrayList<>();
             String uploadFormat = useFlux ? mapFluxOutputFormat(outputFormat) : outputFormat;
+            boolean isEdit = images != null && !images.isEmpty();
+            String provider = useFlux ? "flux" : "azure-openai";
+            String effectiveModel = useFlux ? config.getFluxDeployment() : config.getOpenAIDeployment();
+            int referenceImageCount = isEdit ? images.size() : 0;
             for (byte[] imageData : imageDataList) {
-                String blobName = storageService.upload(imageData, prompt, uploadFormat);
+                String blobName = storageService.upload(imageData, uploadFormat);
                 blobNames.add(blobName);
+                try {
+                    promptStorageService.save(new ImagePrompt(
+                            blobName, prompt, java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC),
+                            effectiveModel, provider, uploadFormat, isEdit ? "edit" : "generate",
+                            isEdit && !useFlux ? inputFidelity : null, jobId, referenceImageCount));
+                } catch (Exception e) {
+                    log.error("Job {}: image {} saved, but prompt persistence failed", jobId, blobName, e);
+                }
             }
             log.info("Job {}: completed, saved {} image(s): {}", jobId, blobNames.size(), blobNames);
             jobStore.setCompleted(jobId, blobNames);
