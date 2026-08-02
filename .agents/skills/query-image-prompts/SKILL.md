@@ -38,8 +38,18 @@ python .agents/skills/query-image-prompts/scripts/query_prompts.py \
   no real extra overhead over substring search.
 - `--since` / `--until` — UTC ISO-8601 bounds, filtered server-side on
   `CreatedAt`.
-- `--model`, `--provider` (`OpenAIService`|`FluxService`), `--operation`
+- `--model`, `--provider` (`azure-openai`|`flux`), `--operation`
   (`generate`|`edit`) — server-side equality filters.
-- `--format json` — full raw rows instead of the summary table.
+- `--format` — defaults to `json` (full untruncated rows, needed since
+  prompts are typically the whole point of the query). Only use `--format
+  table` if the user explicitly wants a quick truncated plain-text scan.
+
+## Presenting results
+
+The script defaults to `--format json`. Render the results yourself as a
+markdown table in your reply (don't just paste the script's raw stdout) —
+prompt text is itself markdown-ish (headings, bold), so keep each cell on
+one line (strip newlines) and truncate long prompts unless the user asked
+to see one in full.
 
 Full option reference and examples: [USAGE.md](references/USAGE.md)

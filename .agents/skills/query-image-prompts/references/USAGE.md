@@ -16,11 +16,11 @@ python .agents/skills/query-image-prompts/scripts/query_prompts.py [options]
 | `--since UTC_ISO8601` | Lower bound on `CreatedAt`, e.g. `2026-07-01T00:00:00Z` (server-side) |
 | `--until UTC_ISO8601` | Upper bound on `CreatedAt` (server-side) |
 | `--model NAME` | Exact match, e.g. `gpt-image-2` (server-side) |
-| `--provider {OpenAIService,FluxService}` | Exact match (server-side) |
+| `--provider {azure-openai,flux}` | Exact match (server-side) |
 | `--operation {generate,edit}` | Exact match (server-side) |
 | `--limit N` | Max rows printed after filtering (default 50) |
 | `--sort {asc,desc}` | Order by `CreatedAt` (default `desc`, newest first) |
-| `--format {table,json}` | Output format (default `table`) |
+| `--format {table,json}` | Output format (default `json` — use `table` only if the user explicitly wants a quick plain-text scan) |
 
 ## How filtering works
 
@@ -39,10 +39,10 @@ python .agents/skills/query-image-prompts/scripts/query_prompts.py \
   --regex "sunset|beach" --since 2026-07-03T00:00:00Z
 ```
 
-All `edit` operations using FluxService, as JSON:
+All `edit` operations using flux, as JSON:
 ```bash
 python .agents/skills/query-image-prompts/scripts/query_prompts.py \
-  --operation edit --provider FluxService --format json
+  --operation edit --provider flux --format json
 ```
 
 Plain substring search, case-sensitive, oldest first:

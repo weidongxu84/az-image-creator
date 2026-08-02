@@ -26,12 +26,24 @@ Example:
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
 
 DEFAULT_ACCOUNT = "azimagecreator"
 DEFAULT_TABLE = "imageprompts"
+
+
+def find_az() -> str:
+    """Resolve the az CLI executable. On Windows it's a .cmd shim, which
+    subprocess can't launch directly without shell=True unless given its
+    full resolved path."""
+    az = shutil.which("az") or shutil.which("az.cmd") or shutil.which("az.exe")
+    if not az:
+        sys.stderr.write("Could not find the 'az' CLI on PATH.\n")
+        sys.exit(1)
+    return az
 
 
 def parse_utc(value: str) -> datetime:
@@ -71,7 +83,7 @@ def build_filter(args) -> "str | None":
 
 def fetch_entities(account: str, table: str, odata_filter: "str | None") -> list:
     cmd = [
-        "az", "storage", "entity", "query",
+        find_az(), "storage", "entity", "query",
         "--account-name", account,
         "--table-name", table,
         "--auth-mode", "login",
@@ -119,11 +131,11 @@ def main():
     parser.add_argument("--since", help="UTC ISO-8601 lower bound, e.g. 2026-07-01T00:00:00Z")
     parser.add_argument("--until", help="UTC ISO-8601 upper bound, e.g. 2026-08-01T00:00:00Z")
     parser.add_argument("--model", help="Exact match, e.g. gpt-image-2")
-    parser.add_argument("--provider", choices=["OpenAIService", "FluxService"])
+    parser.add_argument("--provider", choices=["azure-openai", "flux"])
     parser.add_argument("--operation", choices=["generate", "edit"])
     parser.add_argument("--limit", type=int, default=50, help="Max rows to print (after filtering)")
     parser.add_argument("--sort", choices=["asc", "desc"], default="desc", help="Order by CreatedAt")
-    parser.add_argument("--format", choices=["table", "json"], default="table")
+    parser.add_argument("--format", choices=["table", "json"], default="json")
     args = parser.parse_args()
 
     if args.text and args.regex:
