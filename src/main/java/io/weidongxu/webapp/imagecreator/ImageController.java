@@ -98,6 +98,11 @@ public class ImageController {
         return ResponseEntity.ok(status);
     }
 
+    @GetMapping("/jobs/active")
+    public ResponseEntity<Map<String, Long>> getActiveJobCount() {
+        return ResponseEntity.ok(Map.of("activeJobs", jobStore.activeJobCount()));
+    }
+
     @PostMapping("/validate-orientation")
     public ResponseEntity<?> validateOrientation(
             @RequestParam("prompt") String prompt,

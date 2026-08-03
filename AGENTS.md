@@ -31,6 +31,18 @@ All tests must pass. If a test fails, fix the root cause — do not skip or supp
 
 ### 4. Push
 
+Before **every push**, query the deployed app's authenticated
+`GET /api/jobs/active` endpoint. Push only when it returns:
+
+```json
+{"activeJobs":0}
+```
+
+If the endpoint is unavailable, returns a nonzero count, or cannot be checked,
+do not push. Wait and retry, or ask the user to confirm when it is safe.
+App Service jobs are stored in memory, so a deployment restart interrupts
+active jobs and loses their status.
+
 Commit and push to the `main` branch:
 
 ```bash

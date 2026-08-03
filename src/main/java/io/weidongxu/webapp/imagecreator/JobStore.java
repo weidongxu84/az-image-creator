@@ -32,4 +32,10 @@ public class JobStore {
     public JobStatus getJob(String jobId) {
         return jobs.get(jobId);
     }
+
+    public long activeJobCount() {
+        return jobs.values().stream()
+                .filter(job -> "pending".equals(job.status()) || "running".equals(job.status()))
+                .count();
+    }
 }

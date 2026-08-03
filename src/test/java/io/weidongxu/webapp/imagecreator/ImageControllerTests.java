@@ -14,6 +14,23 @@ import static org.mockito.Mockito.when;
 class ImageControllerTests {
 
     @Test
+    void reportsActiveGenerationJobs() {
+        JobStore jobs = new JobStore();
+        jobs.createJob();
+        String runningJob = jobs.createJob();
+        jobs.setRunning(runningJob);
+        String completedJob = jobs.createJob();
+        jobs.setCompleted(completedJob, java.util.List.of("image.png"));
+
+        ImageController controller = new ImageController();
+        ReflectionTestUtils.setField(controller, "jobStore", jobs);
+
+        ResponseEntity<Map<String, Long>> response = controller.getActiveJobCount();
+
+        assertThat(response.getBody()).containsEntry("activeJobs", 2L);
+    }
+
+    @Test
     void returnsOrientationValidationWithoutCreatingGenerationJob() {
         OpenAIService openAI = mock(OpenAIService.class);
         ImageGenerationService generation = mock(ImageGenerationService.class);
