@@ -56,7 +56,8 @@ Wait for the workflow to complete successfully before proceeding. Do not assume 
 
 ### 6. Verify App Health
 
-After a successful deploy, confirm the app is running:
+App Service commonly needs 2–5 minutes after the workflow succeeds to restart
+and warm up. Wait before checking health, then retry for several minutes:
 
 ```bash
 curl -s https://az-image-creator.azurewebsites.net/actuator/health
@@ -64,7 +65,9 @@ curl -s https://az-image-creator.azurewebsites.net/actuator/health
 
 Expected response: `{"status":"UP",...}`
 
-The health endpoint is public (`permitAll()`) — no credentials needed. A 401 during the first few seconds after deploy is normal (app still starting); retry after a brief wait.
+The health endpoint is public (`permitAll()`) — no credentials needed. Initial
+401/500 responses can occur during restart and dependency warm-up; do not treat
+them as final until retries have continued for at least 5 minutes.
 
 If the health check keeps failing, inspect the App Service logs:
 

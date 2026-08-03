@@ -425,6 +425,8 @@ async function startGeneration() {
 
   requestNotificationPermission();
   setGeneratingUI(true);
+  startTime = Date.now();
+  startElapsedTimer();
   showStatus('pending', 'Checking prompt orientation…');
 
   const formData = new FormData();
@@ -462,13 +464,12 @@ async function startGeneration() {
     const data = await res.json();
     jobId = data.jobId;
   } catch (e) {
+    stopTimers();
     showError('other', 'Failed to start generation: ' + e.message);
     setGeneratingUI(false);
     return;
   }
 
-  startTime = Date.now();
-  startElapsedTimer();
   const imageCount = parseInt(document.getElementById('image-count').value, 10);
   showStatus('running', imageCount > 1 ? `Generating ${imageCount} images…` : 'Generating image…');
   pollJob(jobId);
@@ -543,7 +544,10 @@ function showStatus(state, msg) {
   const area = document.getElementById('status-area');
   area.style.display = 'block';
   if (state === 'pending') {
-    area.innerHTML = `<div class="status-box status-pending">⏳ ${escHtml(msg)}</div>`;
+    area.innerHTML = `<div class="status-box status-pending">
+      <span>⏳</span>
+      <div><div>${escHtml(msg)}</div><div class="elapsed" id="elapsed-label">0s elapsed</div></div>
+    </div>`;
   } else if (state === 'running') {
     area.innerHTML = `<div class="status-box status-running">
       <div class="spinner"></div>

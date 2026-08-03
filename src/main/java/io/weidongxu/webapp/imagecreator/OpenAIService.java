@@ -217,7 +217,12 @@ public class OpenAIService {
                     .reduce((first, second) -> second)
                     .orElseThrow(() -> new IllegalStateException(
                             "Orientation validation returned no structured output"));
-            return ImageOrientationValidation.enforcePolicy(result, size);
+            ImageOrientationValidation validation =
+                    ImageOrientationValidation.enforcePolicy(result, size);
+            log.info("Orientation validation: intended={}, selected={}, confidence={}, matches={}, reason={}",
+                    validation.intended_orientation, validation.selected_orientation,
+                    validation.confidence, validation.matches, validation.reason);
+            return validation;
         } catch (OpenAIServiceException | OpenAIInvalidDataException | IllegalStateException e) {
             log.warn("Orientation validation unavailable; allowing image request: {}", e.getMessage());
             return ImageOrientationValidation.allowWhenUnavailable(size);

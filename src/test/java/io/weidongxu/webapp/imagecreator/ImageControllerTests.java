@@ -14,6 +14,31 @@ import static org.mockito.Mockito.when;
 class ImageControllerTests {
 
     @Test
+    void returnsOrientationValidationWithoutCreatingGenerationJob() {
+        OpenAIService openAI = mock(OpenAIService.class);
+        ImageGenerationService generation = mock(ImageGenerationService.class);
+        ImageOrientationValidation validation = new ImageOrientationValidation();
+        validation.intended_orientation = "portrait";
+        validation.selected_orientation = "portrait";
+        validation.matches = true;
+        validation.confidence = "high";
+        validation.reason = "The prompt explicitly requests a portrait.";
+        when(openAI.validateImageOrientation("vertical portrait", "2448x3264"))
+                .thenReturn(validation);
+
+        ImageController controller = new ImageController();
+        ReflectionTestUtils.setField(controller, "openAIService", openAI);
+        ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
+
+        ResponseEntity<?> response =
+                controller.validateOrientation("vertical portrait", "2448x3264");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isSameAs(validation);
+        verifyNoInteractions(generation);
+    }
+
+    @Test
     void rejectsOrientationMismatchBeforeCreatingGenerationJob() throws Exception {
         OpenAIService openAI = mock(OpenAIService.class);
         ImageGenerationService generation = mock(ImageGenerationService.class);

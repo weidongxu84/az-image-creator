@@ -98,6 +98,20 @@ public class ImageController {
         return ResponseEntity.ok(status);
     }
 
+    @PostMapping("/validate-orientation")
+    public ResponseEntity<?> validateOrientation(
+            @RequestParam("prompt") String prompt,
+            @RequestParam("size") String size) {
+        if (prompt == null || prompt.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Prompt is required."));
+        }
+        try {
+            return ResponseEntity.ok(openAIService.validateImageOrientation(prompt, size));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid image size."));
+        }
+    }
+
     @PostMapping(value = "/chat", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ChatResponsePayload> chat(
             @RequestParam("message") String message,
