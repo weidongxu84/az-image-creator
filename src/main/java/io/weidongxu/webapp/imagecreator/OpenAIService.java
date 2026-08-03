@@ -5,6 +5,7 @@ import com.openai.azure.AzureOpenAIServiceVersion;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.credential.BearerTokenCredential;
+import com.openai.errors.OpenAIInvalidDataException;
 import com.openai.errors.OpenAIServiceException;
 import com.openai.core.MultipartField;
 import com.openai.models.responses.EasyInputMessage;
@@ -64,6 +65,28 @@ public class OpenAIService {
             Answer the user naturally and helpfully.
             If the current user turn contains an image, include practical critique
             and concrete improvement advice.
+            """;
+    private static final String ORIENTATION_VALIDATION_PROMPT = """
+            Determine the canvas orientation explicitly intended by an image-generation prompt.
+
+            You MUST output valid JSON with this exact schema:
+            {
+              "intended_orientation": "landscape|portrait|square|unspecified",
+              "selected_orientation": "landscape|portrait|square",
+              "matches": true,
+              "confidence": "high|medium|low",
+              "reason": "short explanation"
+            }
+
+            Rules:
+            - Use "high" confidence only when the prompt explicitly states an orientation, aspect
+              ratio, dimensions, or clearly equivalent composition such as vertical/full-body
+              portrait or wide/panoramic landscape.
+            - Use "unspecified" when the prompt does not clearly imply a canvas orientation.
+            - Copy the supplied selected orientation into selected_orientation.
+            - Set matches according to whether the intended and selected orientations agree.
+            - Do not infer portrait merely because a person is the subject.
+            - Do not wrap JSON in markdown fences.
             """;
 
     private final String deployment;
@@ -164,6 +187,40 @@ public class OpenAIService {
             throw e;
         } catch (Exception e) {
             throw new RuntimeException("Chat request failed: " + e.getMessage(), e);
+        }
+    }
+
+    public ImageOrientationValidation validateImageOrientation(String prompt, String size) {
+        String selectedOrientation = ImageOrientationValidation.selectedOrientation(size);
+        String input = """
+                Selected size: %s
+                Selected orientation: %s
+
+                Image prompt:
+                %s
+                """.formatted(size, selectedOrientation, prompt);
+
+        try {
+            StructuredResponseCreateParams<ImageOrientationValidation> params = ResponseCreateParams.builder()
+                    .model(chatDeployment)
+                    .instructions(ORIENTATION_VALIDATION_PROMPT)
+                    .input(input)
+                    .text(ImageOrientationValidation.class)
+                    .build();
+            var response = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
+                    c -> c.responses().create(params));
+
+            ImageOrientationValidation result = response.output().stream()
+                    .flatMap(item -> item.message().stream())
+                    .flatMap(message -> message.content().stream())
+                    .flatMap(content -> content.outputText().stream())
+                    .reduce((first, second) -> second)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Orientation validation returned no structured output"));
+            return ImageOrientationValidation.enforcePolicy(result, size);
+        } catch (OpenAIServiceException | OpenAIInvalidDataException | IllegalStateException e) {
+            log.warn("Orientation validation unavailable; allowing image request: {}", e.getMessage());
+            return ImageOrientationValidation.allowWhenUnavailable(size);
         }
     }
 

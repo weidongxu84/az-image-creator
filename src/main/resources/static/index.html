@@ -425,7 +425,7 @@ async function startGeneration() {
 
   requestNotificationPermission();
   setGeneratingUI(true);
-  showStatus('pending', 'Submitting request…');
+  showStatus('pending', 'Checking prompt orientation…');
 
   const formData = new FormData();
   formData.append('prompt', prompt);
@@ -449,8 +449,15 @@ async function startGeneration() {
   try {
     const res = await apiFetch('/api/generate', { method: 'POST', body: formData });
     if (!res.ok) {
-      const txt = await res.text().catch(() => 'Unknown error');
-      throw new Error('HTTP ' + res.status + ': ' + txt);
+      const errorData = await res.json().catch(() => null);
+      if (errorData && errorData.validation) {
+        const validation = errorData.validation;
+        throw new Error(`${errorData.error} ${validation.reason} ` +
+          `(prompt: ${validation.intended_orientation}, selected: ${validation.selected_orientation})`);
+      }
+      throw new Error(errorData && errorData.error
+        ? errorData.error
+        : 'HTTP ' + res.status);
     }
     const data = await res.json();
     jobId = data.jobId;

@@ -35,7 +35,7 @@ public class ImageController {
     private OpenAIService openAIService;
 
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, String>> generate(
+    public ResponseEntity<?> generate(
             @RequestParam("prompt") String prompt,
             @RequestParam(name = "model", required = false, defaultValue = "gpt-image-2") String model,
             @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
@@ -47,6 +47,20 @@ public class ImageController {
 
         if (n < 1) n = 1;
         if (n > 10) n = 10;
+
+        ImageOrientationValidation validation;
+        try {
+            validation = openAIService.validateImageOrientation(prompt, size);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid image size."));
+        }
+        if (!validation.matches) {
+            log.info("Rejected image request due to orientation mismatch: intended={}, selected={}, reason={}",
+                    validation.intended_orientation, validation.selected_orientation, validation.reason);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Prompt orientation does not match the selected image size.",
+                    "validation", validation));
+        }
 
         // Read bytes eagerly in the HTTP request thread — MultipartFile temp files are
         // deleted when the request ends, so the @Async thread must not call getBytes() itself.
