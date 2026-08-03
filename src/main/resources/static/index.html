@@ -384,7 +384,7 @@ function removeFile(idx) {
 function renderChips() {
   const container = document.getElementById('file-chips');
   container.innerHTML = selectedFiles.map((f, i) =>
-    `<span class="file-chip">${escHtml(f.name)}<button onclick="removeFile(${i})" title="Remove">×</button></span>`
+    `<span class="file-chip">${escHtml(f.name)}<button type="button" onclick="event.stopPropagation(); removeFile(${i})" title="Remove">×</button></span>`
   ).join('');
   updateMaskToggle();
 }
