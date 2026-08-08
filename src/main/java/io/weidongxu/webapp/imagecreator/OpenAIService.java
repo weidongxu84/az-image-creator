@@ -92,51 +92,61 @@ public class OpenAIService {
     private final String deployment;
     private final String chatDeployment;
     private final ChatResponseMapper chatResponseMapper;
-    private final OpenAIClient managedIdentityImageClient;
+    private final OpenAIClient imageClient;
     private final OpenAIClient managedIdentityChatClient;
-    private final OpenAIClient apiKeyFallbackImageClient;
+    private final OpenAIClient imageFallbackClient;
     private final OpenAIClient apiKeyFallbackChatClient;
 
     public OpenAIService(AppConfig config, ChatResponseMapper chatResponseMapper) {
-        this.deployment = config.getOpenAIDeployment();
         this.chatDeployment = config.getOpenAIChatDeployment();
         String endpoint = config.getOpenAIEndpoint();
         String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
         this.chatResponseMapper = chatResponseMapper;
         String chatBaseUrl = trimmedEndpoint + "/openai/v1";
 
-        var managedImageBuilder = OpenAIOkHttpClient.builder()
-                .baseUrl(endpoint)
-                .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION));
-
         var managedChatBuilder = OpenAIOkHttpClient.builder()
                 .baseUrl(chatBaseUrl);
 
         TokenRequestContext ctx = new TokenRequestContext()
                 .addScopes("https://cognitiveservices.azure.com/.default");
-        managedImageBuilder.apiKey("none")
-                .credential(BearerTokenCredential.create(
-                        () -> config.getCredential().getToken(ctx).block().getToken()));
-        this.managedIdentityImageClient = managedImageBuilder.build();
-
         managedChatBuilder.apiKey("none")
                 .credential(BearerTokenCredential.create(
                         () -> config.getCredential().getToken(ctx).block().getToken()));
         this.managedIdentityChatClient = managedChatBuilder.build();
 
         String apiKey = config.getOpenAIApiKey();
-        if (apiKey != null && !apiKey.isBlank()) {
-            this.apiKeyFallbackImageClient = OpenAIOkHttpClient.builder()
+        if (config.isUseAlternateImageEndpoint()) {
+            this.deployment = config.getAlternateImageDeployment();
+            this.imageClient = OpenAIOkHttpClient.builder()
+                    .baseUrl(normalizeImageBaseUrl(config.getAlternateImageEndpoint()))
+                    .apiKey(config.getAlternateImageApiKey())
+                    .build();
+            this.imageFallbackClient = null;
+            log.info("Using alternate API-key endpoint for image generation and editing.");
+        } else {
+            this.deployment = config.getOpenAIDeployment();
+            this.imageClient = OpenAIOkHttpClient.builder()
                     .baseUrl(endpoint)
                     .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
-                    .apiKey(apiKey)
+                    .apiKey("none")
+                    .credential(BearerTokenCredential.create(
+                            () -> config.getCredential().getToken(ctx).block().getToken()))
                     .build();
+            this.imageFallbackClient = apiKey == null || apiKey.isBlank()
+                    ? null
+                    : OpenAIOkHttpClient.builder()
+                            .baseUrl(endpoint)
+                            .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
+                            .apiKey(apiKey)
+                            .build();
+        }
+
+        if (apiKey != null && !apiKey.isBlank()) {
             this.apiKeyFallbackChatClient = OpenAIOkHttpClient.builder()
                     .baseUrl(chatBaseUrl)
                     .apiKey(apiKey)
                     .build();
         } else {
-            this.apiKeyFallbackImageClient = null;
             this.apiKeyFallbackChatClient = null;
         }
     }
@@ -243,7 +253,7 @@ public class OpenAIService {
             params.outputCompression(OUTPUT_COMPRESSION);
         }
 
-        return executeWithPreferredAuth(managedIdentityImageClient, apiKeyFallbackImageClient,
+        return executeWithPreferredAuth(imageClient, imageFallbackClient,
                 c -> extractAllImageData(c.images().generate(params.build())));
     }
 
@@ -292,7 +302,7 @@ public class OpenAIService {
                         .build());
             }
 
-            return executeWithPreferredAuth(managedIdentityImageClient, apiKeyFallbackImageClient,
+            return executeWithPreferredAuth(imageClient, imageFallbackClient,
                     c -> extractAllImageData(c.images().edit(paramsBuilder.build())));
         } catch (OpenAIServiceException e) {
             throw e;
@@ -430,6 +440,19 @@ public class OpenAIService {
             log.warn("Managed identity auth failed (HTTP {}). Retrying with API key fallback.", e.statusCode());
             return request.apply(fallbackClient);
         }
+    }
+
+    private static String normalizeImageBaseUrl(String endpoint) {
+        String normalized = endpoint.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        for (String suffix : List.of("/images/generations", "/images/edits")) {
+            if (normalized.endsWith(suffix)) {
+                return normalized.substring(0, normalized.length() - suffix.length());
+            }
+        }
+        return normalized;
     }
 
     private byte[] downloadFromUrl(String url) {

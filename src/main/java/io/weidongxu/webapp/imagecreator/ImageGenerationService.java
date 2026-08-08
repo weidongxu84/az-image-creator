@@ -62,8 +62,12 @@ public class ImageGenerationService {
             }
             String uploadFormat = useFlux ? mapFluxOutputFormat(outputFormat) : outputFormat;
             boolean isEdit = images != null && !images.isEmpty();
-            String provider = useFlux ? "flux" : "azure-openai";
-            String effectiveModel = useFlux ? config.getFluxDeployment() : config.getOpenAIDeployment();
+            String provider = useFlux ? "flux"
+                    : config.isUseAlternateImageEndpoint() ? "azure-openai-alternate" : "azure-openai";
+            String effectiveModel = useFlux ? config.getFluxDeployment()
+                    : config.isUseAlternateImageEndpoint()
+                            ? config.getAlternateImageDeployment()
+                            : config.getOpenAIDeployment();
             int referenceImageCount = isEdit ? images.size() : 0;
             for (byte[] imageData : imageDataList) {
                 String blobName = storageService.upload(imageData, uploadFormat);

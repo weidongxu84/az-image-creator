@@ -23,6 +23,12 @@ The generated image is the primary asset. Prompt metadata is best-effort and mus
 - Static HTML + JavaScript (no frontend framework)
 - Deployed on Azure App Service via GitHub Actions
 
+## Alternate Image Endpoint
+
+Set `AZURE_OPENAI_USE_ALTERNATE_IMAGE_ENDPOINT=true` to route image generation and editing
+through `AZURE_OPENAI_ALT_IMAGE_ENDPOINT` using `AZURE_OPENAI_ALT_IMAGE_API_KEY`.
+`AZURE_OPENAI_ALT_IMAGE_DEPLOYMENT` defaults to `gpt-image-2`. Chat remains on the primary endpoint.
+
 ## License
 
 [MIT](LICENSE)

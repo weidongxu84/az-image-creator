@@ -4,6 +4,8 @@ target/
 *.iml
 .vscode/
 *.env
+.secret/
+.secrets/
 .DS_Store
 scratch/
 *.zip
