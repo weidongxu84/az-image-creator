@@ -23,7 +23,7 @@ class PromptStorageServiceTests {
 
         service.save(new ImagePrompt(
                 "2026/07/31/image.png", "a long prompt", createdAt, "gpt-image-2",
-                "azure-openai", "png", "edit", "high", "job-1", 2));
+                "azure-openai", "png", "edit", "job-1", 2));
 
         ArgumentCaptor<TableEntity> captor = ArgumentCaptor.forClass(TableEntity.class);
         verify(tableClient).createEntity(captor.capture());
@@ -38,7 +38,6 @@ class PromptStorageServiceTests {
                 .containsEntry("Provider", "azure-openai")
                 .containsEntry("OutputFormat", "png")
                 .containsEntry("Operation", "edit")
-                .containsEntry("InputFidelity", "high")
                 .containsEntry("JobId", "job-1")
                 .containsEntry("ReferenceImageCount", 2);
     }

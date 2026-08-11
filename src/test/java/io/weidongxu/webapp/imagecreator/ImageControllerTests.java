@@ -75,7 +75,7 @@ class ImageControllerTests {
 
         ResponseEntity<?> response = controller.generate(
                 "vertical portrait", "gpt-image-2", "3264x2448",
-                "png", 1, "low", null, null);
+                "png", 1, null, null);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody()).isInstanceOf(Map.class);

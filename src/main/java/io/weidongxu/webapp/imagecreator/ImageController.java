@@ -41,7 +41,6 @@ public class ImageController {
             @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
             @RequestParam(name = "outputFormat", required = false, defaultValue = "png") String outputFormat,
             @RequestParam(name = "n", required = false, defaultValue = "1") int n,
-            @RequestParam(name = "inputFidelity", required = false, defaultValue = "low") String inputFidelity,
             @RequestParam(name = "images", required = false) List<MultipartFile> images,
             @RequestParam(name = "mask", required = false) MultipartFile mask) throws IOException {
 
@@ -82,7 +81,7 @@ public class ImageController {
         byte[] maskBytes = (mask != null && !mask.isEmpty()) ? mask.getBytes() : null;
 
         String jobId = jobStore.createJob();
-        imageGenerationService.generateImage(jobId, model, prompt, size, imageBytes, imageFilenames, maskBytes, outputFormat, n, inputFidelity);
+        imageGenerationService.generateImage(jobId, model, prompt, size, imageBytes, imageFilenames, maskBytes, outputFormat, n);
 
         log.info("Started job {} for prompt: {}", jobId, prompt.length() > 80
                 ? prompt.substring(0, 80) + "…" : prompt);

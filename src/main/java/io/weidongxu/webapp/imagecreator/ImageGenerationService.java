@@ -35,7 +35,7 @@ public class ImageGenerationService {
     @Async
     public void generateImage(String jobId, String model, String prompt, String size,
                               List<byte[]> images, List<String> imageFilenames,
-                              byte[] mask, String outputFormat, int n, String inputFidelity) {
+                              byte[] mask, String outputFormat, int n) {
         jobStore.setRunning(jobId);
         boolean useFlux = fluxService.isConfigured() && isFluxModel(model);
         log.info("Job {}: model={}, routed to {}, hasImages={}, size={}, format={}, n={}",
@@ -54,8 +54,8 @@ public class ImageGenerationService {
                     imageDataList = fluxService.generateImage(prompt, size, outputFormat, n);
                 }
             } else if (images != null && !images.isEmpty()) {
-                log.info("Job {}: editing {} image(s), size={}, format={}, n={}, inputFidelity={}", jobId, images.size(), size, outputFormat, n, inputFidelity);
-                imageDataList = openAIService.editImage(prompt, size, images, imageFilenames, mask, outputFormat, n, inputFidelity);
+                log.info("Job {}: editing {} image(s), size={}, format={}, n={}", jobId, images.size(), size, outputFormat, n);
+                imageDataList = openAIService.editImage(prompt, size, images, imageFilenames, mask, outputFormat, n);
             } else {
                 log.info("Job {}: generating new image, size={}, format={}, n={}", jobId, size, outputFormat, n);
                 imageDataList = openAIService.generateImage(prompt, size, outputFormat, n);
@@ -76,7 +76,7 @@ public class ImageGenerationService {
                     promptStorageService.save(new ImagePrompt(
                             blobName, prompt, java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC),
                             effectiveModel, provider, uploadFormat, isEdit ? "edit" : "generate",
-                            isEdit && !useFlux ? inputFidelity : null, jobId, referenceImageCount));
+                            jobId, referenceImageCount));
                 } catch (Exception e) {
                     log.error("Job {}: image {} saved, but prompt persistence failed", jobId, blobName, e);
                 }

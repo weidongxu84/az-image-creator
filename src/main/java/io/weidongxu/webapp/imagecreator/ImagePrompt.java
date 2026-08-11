@@ -10,7 +10,6 @@ public record ImagePrompt(
         String provider,
         String outputFormat,
         String operation,
-        String inputFidelity,
         String jobId,
         int referenceImageCount) {
 }

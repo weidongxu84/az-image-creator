@@ -30,7 +30,7 @@ class ImageGenerationServiceTests {
         String jobId = jobs.createJob();
         service(openAI, flux, storage, prompts, jobs, config)
                 .generateImage(jobId, "requested", "prompt", "1024x1024",
-                        null, null, null, "png", 1, "low");
+                        null, null, null, "png", 1);
 
         assertThat(jobs.getJob(jobId).status()).isEqualTo("completed");
         ArgumentCaptor<ImagePrompt> captor = ArgumentCaptor.forClass(ImagePrompt.class);
@@ -39,7 +39,6 @@ class ImageGenerationServiceTests {
         assertThat(captor.getValue().provider()).isEqualTo("azure-openai");
         assertThat(captor.getValue().operation()).isEqualTo("generate");
         assertThat(captor.getValue().referenceImageCount()).isZero();
-        assertThat(captor.getValue().inputFidelity()).isNull();
     }
 
     @Test
@@ -58,7 +57,7 @@ class ImageGenerationServiceTests {
         String jobId = jobs.createJob();
         service(openAI, flux, storage, prompts, jobs, config)
                 .generateImage(jobId, "gpt-image-2", "prompt", "1024x1024",
-                        null, null, null, "png", 1, "low");
+                        null, null, null, "png", 1);
 
         assertThat(jobs.getJob(jobId).status()).isEqualTo("completed");
         assertThat(jobs.getJob(jobId).imageNames()).containsExactly("2026/07/31/image.png");
@@ -80,7 +79,7 @@ class ImageGenerationServiceTests {
         String jobId = jobs.createJob();
         service(openAI, flux, storage, prompts, jobs, config)
                 .generateImage(jobId, "gpt-image-2", "prompt", "1024x1024",
-                        null, null, null, "png", 1, "low");
+                        null, null, null, "png", 1);
 
         ArgumentCaptor<ImagePrompt> captor = ArgumentCaptor.forClass(ImagePrompt.class);
         verify(prompts).save(captor.capture());

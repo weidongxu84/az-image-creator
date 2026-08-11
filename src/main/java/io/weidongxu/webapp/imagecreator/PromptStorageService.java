@@ -47,9 +47,6 @@ public class PromptStorageService {
                 .addProperty("Operation", prompt.operation())
                 .addProperty("JobId", prompt.jobId())
                 .addProperty("ReferenceImageCount", prompt.referenceImageCount());
-        if (prompt.inputFidelity() != null && !prompt.inputFidelity().isBlank()) {
-            entity.addProperty("InputFidelity", prompt.inputFidelity());
-        }
         tableClient.createEntity(entity);
     }
 
