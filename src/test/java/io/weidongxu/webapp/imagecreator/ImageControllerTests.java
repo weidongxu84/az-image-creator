@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -28,6 +29,21 @@ class ImageControllerTests {
         ResponseEntity<Map<String, Long>> response = controller.getActiveJobCount();
 
         assertThat(response.getBody()).containsEntry("activeJobs", 2L);
+    }
+
+    @Test
+    void combinesMonthAndPromptFiltersWhenListingImages() {
+        StorageService storage = mock(StorageService.class);
+        when(storage.listImages("2026/08/", "sunset")).thenReturn(List.of(
+                new ImageInfo("2026/08/01/image.png", "2026-08-01T00:00:00Z", "A sunset")));
+        ImageController controller = new ImageController();
+        ReflectionTestUtils.setField(controller, "storageService", storage);
+
+        ResponseEntity<PagedImageResponse> response =
+                controller.listImages(0, 6, "2026/08/", "sunset");
+
+        assertThat(response.getBody().totalImages()).isEqualTo(1);
+        assertThat(response.getBody().images()).hasSize(1);
     }
 
     @Test

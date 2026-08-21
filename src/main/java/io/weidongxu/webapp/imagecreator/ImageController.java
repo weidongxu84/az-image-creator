@@ -184,8 +184,9 @@ public class ImageController {
     public ResponseEntity<PagedImageResponse> listImages(
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "6") int size,
-            @RequestParam(name = "prefix", required = false) String prefix) {
-        List<ImageInfo> all = storageService.listImages(prefix);
+            @RequestParam(name = "prefix", required = false) String prefix,
+            @RequestParam(name = "prompt", required = false) String prompt) {
+        List<ImageInfo> all = storageService.listImages(prefix, prompt);
         long total = all.size();
         int totalPages = (int) Math.ceil((double) total / size);
         int fromIndex = Math.min(page * size, all.size());

@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -70,15 +71,15 @@ public class StorageService {
         return blobName;
     }
 
-    public List<ImageInfo> listImages(String prefix) {
-        Map<String, String> storedPrompts = loadStoredPrompts();
+    public List<ImageInfo> listImages(String prefix, String promptFilter) {
+        Map<String, String> storedPrompts = loadStoredPrompts(prefix);
         ListBlobsOptions options = new ListBlobsOptions()
                 .setDetails(new BlobListDetails().setRetrieveMetadata(true));
         if (prefix != null && !prefix.isBlank()) {
             options.setPrefix(prefix);
         }
 
-        return containerClient.listBlobs(options, null).stream()
+        List<ImageInfo> images = containerClient.listBlobs(options, null).stream()
                 .sorted(Comparator.comparing(
                         (BlobItem item) -> item.getProperties().getLastModified(),
                         Comparator.reverseOrder()))
@@ -89,11 +90,19 @@ public class StorageService {
                                 ? storedPrompts.get(item.getName())
                                 : decodePrompt(item.getMetadata())))
                 .collect(Collectors.toList());
+        if (promptFilter == null || promptFilter.isBlank()) {
+            return images;
+        }
+        String needle = promptFilter.trim().toLowerCase(Locale.ROOT);
+        return images.stream()
+                .filter(image -> image.prompt() != null
+                        && image.prompt().toLowerCase(Locale.ROOT).contains(needle))
+                .collect(Collectors.toList());
     }
 
-    private Map<String, String> loadStoredPrompts() {
+    private Map<String, String> loadStoredPrompts(String prefix) {
         try {
-            return promptStorageService.listPrompts();
+            return promptStorageService.listPrompts(prefix);
         } catch (Exception e) {
             log.error("Prompt table unavailable; using legacy blob metadata", e);
             return Collections.emptyMap();

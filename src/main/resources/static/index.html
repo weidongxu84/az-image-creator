@@ -270,6 +270,8 @@
   <div class="toolbar">
     <button class="btn btn-secondary" onclick="loadImages()">↻ Refresh</button>
     <input type="month" id="browse-month" style="padding:.3rem .5rem;border-radius:6px;border:1px solid #3d4260;background:#1e2030;color:#e2e8f0;font-size:.85rem" onchange="onMonthChange()">
+    <input type="search" id="browse-prompt" enterkeyhint="search" placeholder="Prompt contains…" style="padding:.3rem .5rem;border-radius:6px;border:1px solid #3d4260;background:#1e2030;color:#e2e8f0;font-size:.85rem" onkeydown="if(event.key==='Enter')searchImages()">
+    <button class="btn btn-secondary" onclick="searchImages()" style="font-size:.85rem;padding:.3rem .7rem">Search</button>
     <button class="btn btn-secondary" id="browse-all-btn" onclick="showAllImages()" style="font-size:.85rem;padding:.3rem .7rem">All</button>
     <span id="browse-count" style="color:#64748b;font-size:.85rem"></span>
   </div>
@@ -630,6 +632,11 @@ function showAllImages() {
   loadImages();
 }
 
+function searchImages() {
+  currentPage = 0;
+  loadImages();
+}
+
 function changePage(delta) {
   currentPage += delta;
   if (currentPage < 0) currentPage = 0;
@@ -652,7 +659,9 @@ async function loadImages() {
 
   try {
     const prefixParam = currentPrefix ? `&prefix=${encodeURIComponent(currentPrefix)}` : '';
-    const res = await apiFetch(`/api/images?page=${currentPage}&size=${PAGE_SIZE}${prefixParam}`);
+    const prompt = document.getElementById('browse-prompt').value.trim();
+    const promptParam = prompt ? `&prompt=${encodeURIComponent(prompt)}` : '';
+    const res = await apiFetch(`/api/images?page=${currentPage}&size=${PAGE_SIZE}${prefixParam}${promptParam}`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     const images = data.images;

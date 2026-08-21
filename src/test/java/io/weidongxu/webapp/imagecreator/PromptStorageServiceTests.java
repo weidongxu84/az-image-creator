@@ -46,4 +46,11 @@ class PromptStorageServiceTests {
     void derivesPartitionFromBlobNameForDeletion() {
         assertThat(PromptStorageService.partitionKey("2026/07/31/image.png")).isEqualTo("2026-07");
     }
+
+    @Test
+    void derivesPartitionFromMonthlyPrefix() {
+        assertThat(PromptStorageService.partitionKeyFromPrefix("2026/07/")).isEqualTo("2026-07");
+        assertThat(PromptStorageService.partitionKeyFromPrefix("")).isNull();
+        assertThat(PromptStorageService.partitionKeyFromPrefix(null)).isNull();
+    }
 }

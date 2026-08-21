@@ -2,6 +2,7 @@ package io.weidongxu.webapp.imagecreator;
 
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
+import com.azure.data.tables.models.ListEntitiesOptions;
 import com.azure.data.tables.models.TableEntity;
 import com.azure.data.tables.models.TableServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,9 +51,14 @@ public class PromptStorageService {
         tableClient.createEntity(entity);
     }
 
-    public Map<String, String> listPrompts() {
+    public Map<String, String> listPrompts(String blobPrefix) {
         Map<String, String> prompts = new HashMap<>();
-        tableClient.listEntities().forEach(entity -> {
+        ListEntitiesOptions options = new ListEntitiesOptions();
+        String partitionKey = partitionKeyFromPrefix(blobPrefix);
+        if (partitionKey != null) {
+            options.setFilter("PartitionKey eq '" + partitionKey + "'");
+        }
+        tableClient.listEntities(options, null, null).forEach(entity -> {
             Object blobName = entity.getProperty("BlobName");
             Object prompt = entity.getProperty("Prompt");
             if (blobName instanceof String name && prompt instanceof String value) {
@@ -60,6 +66,13 @@ public class PromptStorageService {
             }
         });
         return prompts;
+    }
+
+    static String partitionKeyFromPrefix(String blobPrefix) {
+        if (blobPrefix == null || !blobPrefix.matches("\\d{4}/\\d{2}/")) {
+            return null;
+        }
+        return blobPrefix.substring(0, 4) + "-" + blobPrefix.substring(5, 7);
     }
 
     public boolean delete(String blobName) {
