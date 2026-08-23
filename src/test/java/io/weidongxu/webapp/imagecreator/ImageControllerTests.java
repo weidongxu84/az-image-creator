@@ -2,6 +2,7 @@ package io.weidongxu.webapp.imagecreator;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
@@ -9,6 +10,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -75,13 +77,19 @@ class ImageControllerTests {
     void rejectsOrientationMismatchBeforeCreatingGenerationJob() throws Exception {
         OpenAIService openAI = mock(OpenAIService.class);
         ImageGenerationService generation = mock(ImageGenerationService.class);
-        ImageOrientationValidation validation = new ImageOrientationValidation();
+        ImageRequestValidation validation = new ImageRequestValidation();
         validation.intended_orientation = "portrait";
         validation.selected_orientation = "landscape";
-        validation.matches = false;
-        validation.confidence = "high";
-        validation.reason = "The prompt explicitly requests a vertical portrait.";
-        when(openAI.validateImageOrientation("vertical portrait", "3264x2448"))
+        validation.orientation_matches = false;
+        validation.orientation_confidence = "high";
+        validation.orientation_reason = "The prompt explicitly requests a vertical portrait.";
+        validation.input_image_intent = "generation";
+        validation.minimum_input_images = 0;
+        validation.provided_input_images = 0;
+        validation.input_images_match = true;
+        validation.input_image_confidence = "high";
+        validation.input_image_reason = "No input images are required.";
+        when(openAI.validateImageRequest("vertical portrait", "3264x2448", 0))
                 .thenReturn(validation);
 
         ImageController controller = new ImageController();
@@ -95,7 +103,46 @@ class ImageControllerTests {
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody()).isInstanceOf(Map.class);
-        assertThat(((Map<?, ?>) response.getBody()).get("validation")).isSameAs(validation);
+        assertThat(((Map<?, ?>) response.getBody()).get("validation"))
+                .isInstanceOf(ImageOrientationValidation.class);
+        verifyNoInteractions(generation);
+    }
+
+    @Test
+    void rejectsInputImageShortageAfterOrientationValidation() throws Exception {
+        OpenAIService openAI = mock(OpenAIService.class);
+        ImageGenerationService generation = mock(ImageGenerationService.class);
+        ImageRequestValidation validation = new ImageRequestValidation();
+        validation.intended_orientation = "unspecified";
+        validation.selected_orientation = "portrait";
+        validation.orientation_matches = true;
+        validation.orientation_confidence = "high";
+        validation.orientation_reason = "No orientation was specified.";
+        validation.input_image_intent = "multi_image_edit";
+        validation.minimum_input_images = 2;
+        validation.provided_input_images = 1;
+        validation.input_images_match = false;
+        validation.input_image_confidence = "high";
+        validation.input_image_reason = "The prompt requires two source images.";
+        when(openAI.validateImageRequest("Two-Subject Image Edit", "2448x3264", 1))
+                .thenReturn(validation);
+
+        ImageController controller = new ImageController();
+        ReflectionTestUtils.setField(controller, "openAIService", openAI);
+        ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
+        ReflectionTestUtils.setField(controller, "jobStore", new JobStore());
+        MockMultipartFile image =
+                new MockMultipartFile("images", "subject.png", "image/png", new byte[] { 1 });
+
+        ResponseEntity<?> response = controller.generate(
+                "Two-Subject Image Edit", "gpt-image-2", "2448x3264",
+                "png", 1, List.of(image), null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).isInstanceOf(Map.class);
+        assertThat(((Map<?, ?>) response.getBody()).get("inputImageValidation"))
+                .isInstanceOf(InputImageValidation.class);
+        verify(openAI).validateImageRequest("Two-Subject Image Edit", "2448x3264", 1);
         verifyNoInteractions(generation);
     }
 }

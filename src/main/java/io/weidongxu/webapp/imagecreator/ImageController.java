@@ -47,36 +47,46 @@ public class ImageController {
         if (n < 1) n = 1;
         if (n > 10) n = 10;
 
-        ImageOrientationValidation validation;
+        List<MultipartFile> validImages = images == null ? List.of() : images.stream()
+                .filter(f -> f != null && !f.isEmpty())
+                .collect(Collectors.toList());
+
+        ImageRequestValidation validation;
         try {
-            validation = openAIService.validateImageOrientation(prompt, size);
+            validation = openAIService.validateImageRequest(prompt, size, validImages.size());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid image size."));
         }
-        if (!validation.matches) {
+        if (!validation.orientation_matches) {
+            ImageOrientationValidation orientationValidation = validation.orientationValidation();
             log.info("Rejected image request due to orientation mismatch: intended={}, selected={}, reason={}",
-                    validation.intended_orientation, validation.selected_orientation, validation.reason);
+                    validation.intended_orientation, validation.selected_orientation,
+                    validation.orientation_reason);
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "Prompt orientation does not match the selected image size.",
-                    "validation", validation));
+                    "validation", orientationValidation));
+        }
+        if (!validation.input_images_match) {
+            InputImageValidation inputImageValidation = validation.inputImageValidation();
+            log.info("Rejected image request due to input-image shortage: intent={}, minimum={}, provided={}, reason={}",
+                    validation.input_image_intent, validation.minimum_input_images,
+                    validation.provided_input_images, validation.input_image_reason);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Prompt requires more input images.",
+                    "inputImageValidation", inputImageValidation));
         }
 
         // Read bytes eagerly in the HTTP request thread — MultipartFile temp files are
         // deleted when the request ends, so the @Async thread must not call getBytes() itself.
         List<byte[]> imageBytes = null;
         List<String> imageFilenames = null;
-        if (images != null) {
-            List<MultipartFile> valid = images.stream()
-                    .filter(f -> f != null && !f.isEmpty())
+        if (!validImages.isEmpty()) {
+            imageBytes = validImages.stream()
+                    .map(f -> { try { return f.getBytes(); } catch (IOException e) { throw new RuntimeException(e); } })
                     .collect(Collectors.toList());
-            if (!valid.isEmpty()) {
-                imageBytes = valid.stream()
-                        .map(f -> { try { return f.getBytes(); } catch (IOException e) { throw new RuntimeException(e); } })
-                        .collect(Collectors.toList());
-                imageFilenames = valid.stream()
-                        .map(f -> f.getOriginalFilename() != null ? f.getOriginalFilename() : "image.jpg")
-                        .collect(Collectors.toList());
-            }
+            imageFilenames = validImages.stream()
+                    .map(f -> f.getOriginalFilename() != null ? f.getOriginalFilename() : "image.jpg")
+                    .collect(Collectors.toList());
         }
         byte[] maskBytes = (mask != null && !mask.isEmpty()) ? mask.getBytes() : null;
 

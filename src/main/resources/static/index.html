@@ -454,6 +454,11 @@ async function startGeneration() {
         throw new Error(`${errorData.error} ${validation.reason} ` +
           `(prompt: ${validation.intended_orientation}, selected: ${validation.selected_orientation})`);
       }
+      if (errorData && errorData.inputImageValidation) {
+        const validation = errorData.inputImageValidation;
+        throw new Error(`${errorData.error} ${validation.reason} ` +
+          `(required: ${validation.minimum_input_images}, provided: ${validation.provided_input_images})`);
+      }
       throw new Error(errorData && errorData.error
         ? errorData.error
         : 'HTTP ' + res.status);
