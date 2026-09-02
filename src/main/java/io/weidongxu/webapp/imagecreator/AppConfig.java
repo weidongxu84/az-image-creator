@@ -38,7 +38,7 @@ public class AppConfig {
         openAIEndpoint = Objects.requireNonNull(config.get("AZURE_OPENAI_ENDPOINT"),
                 "AZURE_OPENAI_ENDPOINT must be set");
         openAIDeployment = config.get("AZURE_OPENAI_DEPLOYMENT", "gpt-image-2");
-        openAIChatDeployment = config.get("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5.4");
+        openAIChatDeployment = config.get("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5.6-sol");
         openAIApiKey = config.get("AZURE_OPENAI_IMAGE_API_KEY"); // optional: falls back to managed identity
         useAlternateImageEndpoint = Boolean.parseBoolean(
                 config.get("AZURE_OPENAI_USE_ALTERNATE_IMAGE_ENDPOINT", "false"));
