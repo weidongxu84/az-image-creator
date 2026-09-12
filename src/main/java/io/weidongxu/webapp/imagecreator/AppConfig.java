@@ -17,6 +17,7 @@ public class AppConfig {
     private final String openAIEndpoint;
     private final String openAIDeployment;
     private final String openAIChatDeployment;
+    private final String openAIValidationDeployment;
     private final String openAIApiKey;
     private final boolean useAlternateImageEndpoint;
     private final String alternateImageEndpoint;
@@ -39,6 +40,8 @@ public class AppConfig {
                 "AZURE_OPENAI_ENDPOINT must be set");
         openAIDeployment = config.get("AZURE_OPENAI_DEPLOYMENT", "gpt-image-2");
         openAIChatDeployment = config.get("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5.6-sol");
+        openAIValidationDeployment =
+                config.get("AZURE_OPENAI_VALIDATION_DEPLOYMENT", "gpt-5.4-nano");
         openAIApiKey = config.get("AZURE_OPENAI_IMAGE_API_KEY"); // optional: falls back to managed identity
         useAlternateImageEndpoint = Boolean.parseBoolean(
                 config.get("AZURE_OPENAI_USE_ALTERNATE_IMAGE_ENDPOINT", "false"));
@@ -69,6 +72,7 @@ public class AppConfig {
     public String getOpenAIEndpoint() { return openAIEndpoint; }
     public String getOpenAIDeployment() { return openAIDeployment; }
     public String getOpenAIChatDeployment() { return openAIChatDeployment; }
+    public String getOpenAIValidationDeployment() { return openAIValidationDeployment; }
     public String getOpenAIApiKey() { return openAIApiKey; }
     public boolean isUseAlternateImageEndpoint() { return useAlternateImageEndpoint; }
     public String getAlternateImageEndpoint() { return alternateImageEndpoint; }

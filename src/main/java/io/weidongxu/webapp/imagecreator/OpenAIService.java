@@ -122,6 +122,7 @@ public class OpenAIService {
 
     private final String deployment;
     private final String chatDeployment;
+    private final String validationDeployment;
     private final ChatResponseMapper chatResponseMapper;
     private final OpenAIClient imageClient;
     private final OpenAIClient managedIdentityChatClient;
@@ -130,6 +131,7 @@ public class OpenAIService {
 
     public OpenAIService(AppConfig config, ChatResponseMapper chatResponseMapper) {
         this.chatDeployment = config.getOpenAIChatDeployment();
+        this.validationDeployment = config.getOpenAIValidationDeployment();
         String endpoint = config.getOpenAIEndpoint();
         String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
         this.chatResponseMapper = chatResponseMapper;
@@ -245,7 +247,7 @@ public class OpenAIService {
 
         try {
             StructuredResponseCreateParams<ImageRequestValidation> params = ResponseCreateParams.builder()
-                    .model(chatDeployment)
+                    .model(validationDeployment)
                     .instructions(IMAGE_REQUEST_VALIDATION_PROMPT)
                     .input(input)
                     .text(ImageRequestValidation.class)
