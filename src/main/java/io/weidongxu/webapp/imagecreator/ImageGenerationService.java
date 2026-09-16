@@ -55,19 +55,18 @@ public class ImageGenerationService {
                 }
             } else if (images != null && !images.isEmpty()) {
                 log.info("Job {}: editing {} image(s), size={}, format={}, n={}", jobId, images.size(), size, outputFormat, n);
-                imageDataList = openAIService.editImage(prompt, size, images, imageFilenames, mask, outputFormat, n);
+                imageDataList = openAIService.editImage(
+                        model, prompt, size, images, imageFilenames, mask, outputFormat, n);
             } else {
                 log.info("Job {}: generating new image, size={}, format={}, n={}", jobId, size, outputFormat, n);
-                imageDataList = openAIService.generateImage(prompt, size, outputFormat, n);
+                imageDataList = openAIService.generateImage(model, prompt, size, outputFormat, n);
             }
             String uploadFormat = useFlux ? mapFluxOutputFormat(outputFormat) : outputFormat;
             boolean isEdit = images != null && !images.isEmpty();
             String provider = useFlux ? "flux"
                     : config.isUseAlternateImageEndpoint() ? "azure-openai-alternate" : "azure-openai";
             String effectiveModel = useFlux ? config.getFluxDeployment()
-                    : config.isUseAlternateImageEndpoint()
-                            ? config.getAlternateImageDeployment()
-                            : config.getOpenAIDeployment();
+                    : openAIService.getImageDeployment(model);
             int referenceImageCount = isEdit ? images.size() : 0;
             for (byte[] imageData : imageDataList) {
                 String blobName = storageService.upload(imageData, uploadFormat);

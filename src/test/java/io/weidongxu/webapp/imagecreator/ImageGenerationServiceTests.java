@@ -23,13 +23,14 @@ class ImageGenerationServiceTests {
         PromptStorageService prompts = mock(PromptStorageService.class);
         JobStore jobs = new JobStore();
         AppConfig config = mock(AppConfig.class);
-        when(config.getOpenAIDeployment()).thenReturn("gpt-image-2");
-        when(openAI.generateImage("prompt", "1024x1024", "png", 1)).thenReturn(List.of(new byte[]{1}));
+        when(openAI.getImageDeployment("gpt-image-2")).thenReturn("gpt-image-2");
+        when(openAI.generateImage("gpt-image-2", "prompt", "1024x1024", "png", 1))
+                .thenReturn(List.of(new byte[]{1}));
         when(storage.upload(any(), eq("png"))).thenReturn("2026/07/31/image.png");
 
         String jobId = jobs.createJob();
         service(openAI, flux, storage, prompts, jobs, config)
-                .generateImage(jobId, "requested", "prompt", "1024x1024",
+                .generateImage(jobId, "gpt-image-2", "prompt", "1024x1024",
                         null, null, null, "png", 1);
 
         assertThat(jobs.getJob(jobId).status()).isEqualTo("completed");
@@ -49,8 +50,8 @@ class ImageGenerationServiceTests {
         PromptStorageService prompts = mock(PromptStorageService.class);
         JobStore jobs = new JobStore();
         AppConfig config = mock(AppConfig.class);
-        when(config.getOpenAIDeployment()).thenReturn("gpt-image-2");
-        when(openAI.generateImage(any(), any(), any(), eq(1))).thenReturn(List.of(new byte[]{1}));
+        when(openAI.getImageDeployment("gpt-image-2")).thenReturn("gpt-image-2");
+        when(openAI.generateImage(any(), any(), any(), any(), eq(1))).thenReturn(List.of(new byte[]{1}));
         when(storage.upload(any(), eq("png"))).thenReturn("2026/07/31/image.png");
         doThrow(new RuntimeException("table unavailable")).when(prompts).save(any());
 
@@ -72,8 +73,9 @@ class ImageGenerationServiceTests {
         JobStore jobs = new JobStore();
         AppConfig config = mock(AppConfig.class);
         when(config.isUseAlternateImageEndpoint()).thenReturn(true);
-        when(config.getAlternateImageDeployment()).thenReturn("gpt-image-2");
-        when(openAI.generateImage("prompt", "1024x1024", "png", 1)).thenReturn(List.of(new byte[]{1}));
+        when(openAI.getImageDeployment("gpt-image-2")).thenReturn("gpt-image-2");
+        when(openAI.generateImage("gpt-image-2", "prompt", "1024x1024", "png", 1))
+                .thenReturn(List.of(new byte[]{1}));
         when(storage.upload(any(), eq("png"))).thenReturn("2026/07/31/image.png");
 
         String jobId = jobs.createJob();
@@ -85,6 +87,30 @@ class ImageGenerationServiceTests {
         verify(prompts).save(captor.capture());
         assertThat(captor.getValue().model()).isEqualTo("gpt-image-2");
         assertThat(captor.getValue().provider()).isEqualTo("azure-openai-alternate");
+    }
+
+    @Test
+    void recordsSelectedFlareDeployment() {
+        OpenAIService openAI = mock(OpenAIService.class);
+        FluxService flux = mock(FluxService.class);
+        StorageService storage = mock(StorageService.class);
+        PromptStorageService prompts = mock(PromptStorageService.class);
+        JobStore jobs = new JobStore();
+        AppConfig config = mock(AppConfig.class);
+        when(openAI.getImageDeployment("gpt-image-2.5-flare")).thenReturn("gpt-image-2.5-flare");
+        when(openAI.generateImage("gpt-image-2.5-flare", "prompt", "1024x1024", "png", 1))
+                .thenReturn(List.of(new byte[]{1}));
+        when(storage.upload(any(), eq("png"))).thenReturn("2026/09/16/image.png");
+
+        String jobId = jobs.createJob();
+        service(openAI, flux, storage, prompts, jobs, config)
+                .generateImage(jobId, "gpt-image-2.5-flare", "prompt", "1024x1024",
+                        null, null, null, "png", 1);
+
+        ArgumentCaptor<ImagePrompt> captor = ArgumentCaptor.forClass(ImagePrompt.class);
+        verify(prompts).save(captor.capture());
+        assertThat(captor.getValue().model()).isEqualTo("gpt-image-2.5-flare");
+        assertThat(captor.getValue().provider()).isEqualTo("azure-openai");
     }
 
     private ImageGenerationService service(OpenAIService openAI, FluxService flux, StorageService storage,

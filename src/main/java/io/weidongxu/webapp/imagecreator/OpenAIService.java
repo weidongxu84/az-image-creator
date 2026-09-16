@@ -33,6 +33,8 @@ import java.util.stream.Collectors;
 public class OpenAIService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAIService.class);
+    private static final String GPT_IMAGE_2 = "gpt-image-2";
+    private static final String GPT_IMAGE_2_5_FLARE = "gpt-image-2.5-flare";
     private static final String IMAGE_API_VERSION = "2025-04-01-preview";
     private static final long OUTPUT_COMPRESSION = 95L;
     private static final String CHAT_SYSTEM_PROMPT_JSON = """
@@ -121,8 +123,10 @@ public class OpenAIService {
             """;
 
     private final String deployment;
+    private final String flareDeployment;
     private final String chatDeployment;
     private final String validationDeployment;
+    private final boolean useAlternateImageEndpoint;
     private final ChatResponseMapper chatResponseMapper;
     private final OpenAIClient imageClient;
     private final OpenAIClient managedIdentityChatClient;
@@ -132,6 +136,8 @@ public class OpenAIService {
     public OpenAIService(AppConfig config, ChatResponseMapper chatResponseMapper) {
         this.chatDeployment = config.getOpenAIChatDeployment();
         this.validationDeployment = config.getOpenAIValidationDeployment();
+        this.flareDeployment = config.getOpenAIFlareDeployment();
+        this.useAlternateImageEndpoint = config.isUseAlternateImageEndpoint();
         String endpoint = config.getOpenAIEndpoint();
         String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
         this.chatResponseMapper = chatResponseMapper;
@@ -148,7 +154,7 @@ public class OpenAIService {
         this.managedIdentityChatClient = managedChatBuilder.build();
 
         String apiKey = config.getOpenAIApiKey();
-        if (config.isUseAlternateImageEndpoint()) {
+        if (useAlternateImageEndpoint) {
             this.deployment = config.getAlternateImageDeployment();
             this.imageClient = OpenAIOkHttpClient.builder()
                     .baseUrl(normalizeImageBaseUrl(config.getAlternateImageEndpoint()))
@@ -282,13 +288,13 @@ public class OpenAIService {
         return validateImageRequest(prompt, size, 0).orientationValidation();
     }
 
-    public List<byte[]> generateImage(String prompt, String size, String outputFormat, int n) {
+    public List<byte[]> generateImage(String model, String prompt, String size, String outputFormat, int n) {
         var params = ImageGenerateParams.builder()
                 .prompt(prompt)
-                .model(deployment)
+                .model(getImageDeployment(model))
                 .n((long) n)
                 .size(ImageGenerateParams.Size.of(size))
-                .quality(ImageGenerateParams.Quality.HIGH)
+                .quality(generateQuality(model))
                 .moderation(ImageGenerateParams.Moderation.LOW)
                 .outputFormat(ImageGenerateParams.OutputFormat.of(outputFormat));
 
@@ -300,15 +306,15 @@ public class OpenAIService {
                 c -> extractAllImageData(c.images().generate(params.build())));
     }
 
-    public List<byte[]> editImage(String prompt, String size, List<byte[]> images,
+    public List<byte[]> editImage(String model, String prompt, String size, List<byte[]> images,
                             List<String> filenames, byte[] mask, String outputFormat, int n) {
         try {
             var paramsBuilder = ImageEditParams.builder()
                     .prompt(prompt)
-                    .model(deployment)
+                    .model(getImageDeployment(model))
                     .n((long) n)
                     .size(ImageEditParams.Size.of(size))
-                    .quality(ImageEditParams.Quality.HIGH)
+                    .quality(editQuality(model))
                     .outputFormat(ImageEditParams.OutputFormat.of(outputFormat));
 
             if (isCompressedFormat(outputFormat)) {
@@ -351,6 +357,32 @@ public class OpenAIService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to prepare image edit request: " + e.getMessage(), e);
         }
+    }
+
+    public String getImageDeployment(String model) {
+        if (GPT_IMAGE_2.equalsIgnoreCase(model)) {
+            return deployment;
+        }
+        if (GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)) {
+            if (useAlternateImageEndpoint) {
+                throw new IllegalArgumentException(
+                        "GPT Image 2.5 Flare is available only on the primary image endpoint");
+            }
+            return flareDeployment;
+        }
+        throw new IllegalArgumentException("Unsupported OpenAI image model: " + model);
+    }
+
+    static ImageGenerateParams.Quality generateQuality(String model) {
+        return GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)
+                ? ImageGenerateParams.Quality.MAX
+                : ImageGenerateParams.Quality.HIGH;
+    }
+
+    static ImageEditParams.Quality editQuality(String model) {
+        return GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)
+                ? ImageEditParams.Quality.MAX
+                : ImageEditParams.Quality.HIGH;
     }
 
     private String contentTypeFromFilename(String filename) {
