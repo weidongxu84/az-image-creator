@@ -23,6 +23,7 @@ public class AppConfig {
     private final boolean useAlternateImageEndpoint;
     private final String alternateImageEndpoint;
     private final String alternateImageDeployment;
+    private final String alternateImageFlareDeployment;
     private final String alternateImageApiKey;
     private final String fluxEndpoint;
     private final String fluxDeployment;
@@ -49,6 +50,8 @@ public class AppConfig {
                 config.get("AZURE_OPENAI_USE_ALTERNATE_IMAGE_ENDPOINT", "false"));
         alternateImageEndpoint = config.get("AZURE_OPENAI_ALT_IMAGE_ENDPOINT");
         alternateImageDeployment = config.get("AZURE_OPENAI_ALT_IMAGE_DEPLOYMENT", "gpt-image-2");
+        alternateImageFlareDeployment =
+                config.get("AZURE_OPENAI_ALT_FLARE_DEPLOYMENT", "gpt-image-2.5-flare");
         alternateImageApiKey = config.get("AZURE_OPENAI_ALT_IMAGE_API_KEY");
         if (useAlternateImageEndpoint) {
             requireNonBlank(alternateImageEndpoint, "AZURE_OPENAI_ALT_IMAGE_ENDPOINT must be set");
@@ -80,6 +83,7 @@ public class AppConfig {
     public boolean isUseAlternateImageEndpoint() { return useAlternateImageEndpoint; }
     public String getAlternateImageEndpoint() { return alternateImageEndpoint; }
     public String getAlternateImageDeployment() { return alternateImageDeployment; }
+    public String getAlternateImageFlareDeployment() { return alternateImageFlareDeployment; }
     public String getAlternateImageApiKey() { return alternateImageApiKey; }
     public String getFluxEndpoint() { return fluxEndpoint; }
     public String getFluxDeployment() { return fluxDeployment; }

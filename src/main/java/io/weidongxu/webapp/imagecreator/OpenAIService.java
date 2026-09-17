@@ -136,8 +136,10 @@ public class OpenAIService {
     public OpenAIService(AppConfig config, ChatResponseMapper chatResponseMapper) {
         this.chatDeployment = config.getOpenAIChatDeployment();
         this.validationDeployment = config.getOpenAIValidationDeployment();
-        this.flareDeployment = config.getOpenAIFlareDeployment();
         this.useAlternateImageEndpoint = config.isUseAlternateImageEndpoint();
+        this.flareDeployment = useAlternateImageEndpoint
+                ? config.getAlternateImageFlareDeployment()
+                : config.getOpenAIFlareDeployment();
         String endpoint = config.getOpenAIEndpoint();
         String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
         this.chatResponseMapper = chatResponseMapper;
@@ -364,10 +366,6 @@ public class OpenAIService {
             return deployment;
         }
         if (GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)) {
-            if (useAlternateImageEndpoint) {
-                throw new IllegalArgumentException(
-                        "GPT Image 2.5 Flare is available only on the primary image endpoint");
-            }
             return flareDeployment;
         }
         throw new IllegalArgumentException("Unsupported OpenAI image model: " + model);
