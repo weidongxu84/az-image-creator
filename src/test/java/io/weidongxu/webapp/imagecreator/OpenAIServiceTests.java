@@ -11,11 +11,15 @@ import static org.mockito.Mockito.when;
 class OpenAIServiceTests {
 
     @Test
-    void usesMaxQualityOnlyForFlare() {
+    void usesModelSpecificImageQuality() {
         assertThat(OpenAIService.generateQuality("gpt-image-2.5-flare"))
                 .isEqualTo(ImageGenerateParams.Quality.MAX);
         assertThat(OpenAIService.editQuality("gpt-image-2.5-flare"))
                 .isEqualTo(ImageEditParams.Quality.MAX);
+        assertThat(OpenAIService.generateQuality("gpt-image-2.5-sunburst"))
+                .isEqualTo(ImageGenerateParams.Quality.XHIGH);
+        assertThat(OpenAIService.editQuality("gpt-image-2.5-sunburst"))
+                .isEqualTo(ImageEditParams.Quality.XHIGH);
         assertThat(OpenAIService.generateQuality("gpt-image-2"))
                 .isEqualTo(ImageGenerateParams.Quality.HIGH);
         assertThat(OpenAIService.editQuality("gpt-image-2"))
@@ -31,6 +35,7 @@ class OpenAIServiceTests {
         when(config.getAlternateImageApiKey()).thenReturn("test-key");
         when(config.getAlternateImageDeployment()).thenReturn("gpt-image-2-secondary");
         when(config.getAlternateImageFlareDeployment()).thenReturn("gpt-image-2.5-flare-secondary");
+        when(config.getAlternateImageSunburstDeployment()).thenReturn("gpt-image-2.5-sunburst-secondary");
 
         OpenAIService service = new OpenAIService(config, mock(ChatResponseMapper.class));
 
@@ -38,5 +43,7 @@ class OpenAIServiceTests {
                 .isEqualTo("gpt-image-2-secondary");
         assertThat(service.getImageDeployment("gpt-image-2.5-flare"))
                 .isEqualTo("gpt-image-2.5-flare-secondary");
+        assertThat(service.getImageDeployment("gpt-image-2.5-sunburst"))
+                .isEqualTo("gpt-image-2.5-sunburst-secondary");
     }
 }

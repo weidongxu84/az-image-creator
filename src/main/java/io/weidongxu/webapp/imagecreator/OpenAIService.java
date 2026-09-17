@@ -35,6 +35,7 @@ public class OpenAIService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAIService.class);
     private static final String GPT_IMAGE_2 = "gpt-image-2";
     private static final String GPT_IMAGE_2_5_FLARE = "gpt-image-2.5-flare";
+    private static final String GPT_IMAGE_2_5_SUNBURST = "gpt-image-2.5-sunburst";
     private static final String IMAGE_API_VERSION = "2025-04-01-preview";
     private static final long OUTPUT_COMPRESSION = 95L;
     private static final String CHAT_SYSTEM_PROMPT_JSON = """
@@ -124,6 +125,7 @@ public class OpenAIService {
 
     private final String deployment;
     private final String flareDeployment;
+    private final String sunburstDeployment;
     private final String chatDeployment;
     private final String validationDeployment;
     private final boolean useAlternateImageEndpoint;
@@ -140,6 +142,9 @@ public class OpenAIService {
         this.flareDeployment = useAlternateImageEndpoint
                 ? config.getAlternateImageFlareDeployment()
                 : config.getOpenAIFlareDeployment();
+        this.sunburstDeployment = useAlternateImageEndpoint
+                ? config.getAlternateImageSunburstDeployment()
+                : config.getOpenAISunburstDeployment();
         String endpoint = config.getOpenAIEndpoint();
         String trimmedEndpoint = endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) : endpoint;
         this.chatResponseMapper = chatResponseMapper;
@@ -368,19 +373,30 @@ public class OpenAIService {
         if (GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)) {
             return flareDeployment;
         }
+        if (GPT_IMAGE_2_5_SUNBURST.equalsIgnoreCase(model)) {
+            return sunburstDeployment;
+        }
         throw new IllegalArgumentException("Unsupported OpenAI image model: " + model);
     }
 
     static ImageGenerateParams.Quality generateQuality(String model) {
-        return GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)
-                ? ImageGenerateParams.Quality.MAX
-                : ImageGenerateParams.Quality.HIGH;
+        if (GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)) {
+            return ImageGenerateParams.Quality.MAX;
+        }
+        if (GPT_IMAGE_2_5_SUNBURST.equalsIgnoreCase(model)) {
+            return ImageGenerateParams.Quality.XHIGH;
+        }
+        return ImageGenerateParams.Quality.HIGH;
     }
 
     static ImageEditParams.Quality editQuality(String model) {
-        return GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)
-                ? ImageEditParams.Quality.MAX
-                : ImageEditParams.Quality.HIGH;
+        if (GPT_IMAGE_2_5_FLARE.equalsIgnoreCase(model)) {
+            return ImageEditParams.Quality.MAX;
+        }
+        if (GPT_IMAGE_2_5_SUNBURST.equalsIgnoreCase(model)) {
+            return ImageEditParams.Quality.XHIGH;
+        }
+        return ImageEditParams.Quality.HIGH;
     }
 
     private String contentTypeFromFilename(String filename) {

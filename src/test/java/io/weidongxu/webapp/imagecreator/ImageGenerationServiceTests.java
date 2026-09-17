@@ -113,6 +113,30 @@ class ImageGenerationServiceTests {
         assertThat(captor.getValue().provider()).isEqualTo("azure-openai");
     }
 
+    @Test
+    void recordsSelectedSunburstDeployment() {
+        OpenAIService openAI = mock(OpenAIService.class);
+        FluxService flux = mock(FluxService.class);
+        StorageService storage = mock(StorageService.class);
+        PromptStorageService prompts = mock(PromptStorageService.class);
+        JobStore jobs = new JobStore();
+        AppConfig config = mock(AppConfig.class);
+        when(openAI.getImageDeployment("gpt-image-2.5-sunburst")).thenReturn("gpt-image-2.5-sunburst");
+        when(openAI.generateImage("gpt-image-2.5-sunburst", "prompt", "1024x1024", "png", 1))
+                .thenReturn(List.of(new byte[]{1}));
+        when(storage.upload(any(), eq("png"))).thenReturn("2026/09/17/image.png");
+
+        String jobId = jobs.createJob();
+        service(openAI, flux, storage, prompts, jobs, config)
+                .generateImage(jobId, "gpt-image-2.5-sunburst", "prompt", "1024x1024",
+                        null, null, null, "png", 1);
+
+        ArgumentCaptor<ImagePrompt> captor = ArgumentCaptor.forClass(ImagePrompt.class);
+        verify(prompts).save(captor.capture());
+        assertThat(captor.getValue().model()).isEqualTo("gpt-image-2.5-sunburst");
+        assertThat(captor.getValue().provider()).isEqualTo("azure-openai");
+    }
+
     private ImageGenerationService service(OpenAIService openAI, FluxService flux, StorageService storage,
                                            PromptStorageService prompts, JobStore jobs, AppConfig config) {
         return new ImageGenerationService(openAI, flux, storage, prompts, jobs, config);

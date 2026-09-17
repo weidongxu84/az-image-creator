@@ -29,6 +29,7 @@ Set `AZURE_OPENAI_USE_ALTERNATE_IMAGE_ENDPOINT=true` to route image generation a
 through `AZURE_OPENAI_ALT_IMAGE_ENDPOINT` using `AZURE_OPENAI_ALT_IMAGE_API_KEY`.
 `AZURE_OPENAI_ALT_IMAGE_DEPLOYMENT` defaults to `gpt-image-2`, and
 `AZURE_OPENAI_ALT_FLARE_DEPLOYMENT` defaults to `gpt-image-2.5-flare`.
+`AZURE_OPENAI_ALT_SUNBURST_DEPLOYMENT` defaults to `gpt-image-2.5-sunburst`.
 Chat remains on the primary endpoint.
 
 ## License

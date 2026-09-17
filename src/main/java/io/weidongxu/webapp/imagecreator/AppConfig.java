@@ -17,6 +17,7 @@ public class AppConfig {
     private final String openAIEndpoint;
     private final String openAIDeployment;
     private final String openAIFlareDeployment;
+    private final String openAISunburstDeployment;
     private final String openAIChatDeployment;
     private final String openAIValidationDeployment;
     private final String openAIApiKey;
@@ -24,6 +25,7 @@ public class AppConfig {
     private final String alternateImageEndpoint;
     private final String alternateImageDeployment;
     private final String alternateImageFlareDeployment;
+    private final String alternateImageSunburstDeployment;
     private final String alternateImageApiKey;
     private final String fluxEndpoint;
     private final String fluxDeployment;
@@ -42,6 +44,8 @@ public class AppConfig {
                 "AZURE_OPENAI_ENDPOINT must be set");
         openAIDeployment = config.get("AZURE_OPENAI_DEPLOYMENT", "gpt-image-2");
         openAIFlareDeployment = config.get("AZURE_OPENAI_FLARE_DEPLOYMENT", "gpt-image-2.5-flare");
+        openAISunburstDeployment =
+                config.get("AZURE_OPENAI_SUNBURST_DEPLOYMENT", "gpt-image-2.5-sunburst");
         openAIChatDeployment = config.get("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5.6-sol");
         openAIValidationDeployment =
                 config.get("AZURE_OPENAI_VALIDATION_DEPLOYMENT", "gpt-5.4-nano");
@@ -52,6 +56,8 @@ public class AppConfig {
         alternateImageDeployment = config.get("AZURE_OPENAI_ALT_IMAGE_DEPLOYMENT", "gpt-image-2");
         alternateImageFlareDeployment =
                 config.get("AZURE_OPENAI_ALT_FLARE_DEPLOYMENT", "gpt-image-2.5-flare");
+        alternateImageSunburstDeployment =
+                config.get("AZURE_OPENAI_ALT_SUNBURST_DEPLOYMENT", "gpt-image-2.5-sunburst");
         alternateImageApiKey = config.get("AZURE_OPENAI_ALT_IMAGE_API_KEY");
         if (useAlternateImageEndpoint) {
             requireNonBlank(alternateImageEndpoint, "AZURE_OPENAI_ALT_IMAGE_ENDPOINT must be set");
@@ -77,6 +83,7 @@ public class AppConfig {
     public String getOpenAIEndpoint() { return openAIEndpoint; }
     public String getOpenAIDeployment() { return openAIDeployment; }
     public String getOpenAIFlareDeployment() { return openAIFlareDeployment; }
+    public String getOpenAISunburstDeployment() { return openAISunburstDeployment; }
     public String getOpenAIChatDeployment() { return openAIChatDeployment; }
     public String getOpenAIValidationDeployment() { return openAIValidationDeployment; }
     public String getOpenAIApiKey() { return openAIApiKey; }
@@ -84,6 +91,7 @@ public class AppConfig {
     public String getAlternateImageEndpoint() { return alternateImageEndpoint; }
     public String getAlternateImageDeployment() { return alternateImageDeployment; }
     public String getAlternateImageFlareDeployment() { return alternateImageFlareDeployment; }
+    public String getAlternateImageSunburstDeployment() { return alternateImageSunburstDeployment; }
     public String getAlternateImageApiKey() { return alternateImageApiKey; }
     public String getFluxEndpoint() { return fluxEndpoint; }
     public String getFluxDeployment() { return fluxDeployment; }
