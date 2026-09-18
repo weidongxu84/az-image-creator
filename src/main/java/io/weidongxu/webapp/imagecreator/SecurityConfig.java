@@ -24,6 +24,9 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(BCryptPasswordEncoder bCryptPasswordEncoder) {
         InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
+        if (appConfig.isLocalSkipAuth()) {
+            return manager;
+        }
         manager.createUser(User.withUsername(appConfig.getUsername())
                 .password(bCryptPasswordEncoder.encode(appConfig.getPersonalToken()))
                 .roles("USER")
@@ -33,11 +36,16 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/actuator/health").permitAll()
-                        .anyRequest().authenticated())
-                .httpBasic(Customizer.withDefaults())
+        http.csrf(AbstractHttpConfigurer::disable);
+        if (appConfig.isLocalSkipAuth()) {
+            http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+        } else {
+            http.authorizeHttpRequests(auth -> auth
+                            .requestMatchers("/", "/actuator/health").permitAll()
+                            .anyRequest().authenticated())
+                    .httpBasic(Customizer.withDefaults());
+        }
+        http
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         return http.build();

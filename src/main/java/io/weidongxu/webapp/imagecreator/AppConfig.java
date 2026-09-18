@@ -15,6 +15,7 @@ public class AppConfig {
     private final String username;
     private final String personalToken;
     private final boolean localMode;
+    private final boolean localSkipAuth;
     private final String openAIEndpoint;
     private final String openAIDeployment;
     private final String openAIFlareDeployment;
@@ -39,9 +40,14 @@ public class AppConfig {
     public AppConfig() {
         Configuration config = Configuration.getGlobalConfiguration();
 
-        username = Objects.requireNonNull(config.get("PERSONAL_USERNAME"), "PERSONAL_USERNAME must be set");
-        personalToken = Objects.requireNonNull(config.get("PERSONAL_TOKEN"), "PERSONAL_TOKEN must be set");
         localMode = "local".equalsIgnoreCase(config.get("APP_MODE", "cloud"));
+        localSkipAuth = localSkipAuth(localMode, config.get("LOCAL_SKIP_AUTH", "false"));
+        username = config.get("PERSONAL_USERNAME");
+        personalToken = config.get("PERSONAL_TOKEN");
+        if (!localSkipAuth) {
+            requireNonBlank(username, "PERSONAL_USERNAME must be set");
+            requireNonBlank(personalToken, "PERSONAL_TOKEN must be set");
+        }
 
         openAIEndpoint = Objects.requireNonNull(config.get("AZURE_OPENAI_ENDPOINT"),
                 "AZURE_OPENAI_ENDPOINT must be set");
@@ -91,6 +97,7 @@ public class AppConfig {
     public String getUsername() { return username; }
     public String getPersonalToken() { return personalToken; }
     public boolean isLocalMode() { return localMode; }
+    public boolean isLocalSkipAuth() { return localSkipAuth; }
     public String getOpenAIEndpoint() { return openAIEndpoint; }
     public String getOpenAIDeployment() { return openAIDeployment; }
     public String getOpenAIFlareDeployment() { return openAIFlareDeployment; }
@@ -120,5 +127,9 @@ public class AppConfig {
             throw new IllegalArgumentException(message);
         }
         return value;
+    }
+
+    static boolean localSkipAuth(boolean localMode, String value) {
+        return localMode && Boolean.parseBoolean(value);
     }
 }

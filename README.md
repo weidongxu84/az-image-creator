@@ -44,6 +44,9 @@ Copy `.env.example` to `.env`, set the values, then run:
 .\run-local.ps1
 ```
 
+Set `LOCAL_SKIP_AUTH=true` to disable HTTP Basic authentication in local mode.
+This setting is ignored in cloud mode.
+
 ## License
 
 [MIT](LICENSE)
