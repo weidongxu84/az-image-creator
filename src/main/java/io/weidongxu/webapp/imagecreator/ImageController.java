@@ -37,7 +37,7 @@ public class ImageController {
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> generate(
             @RequestParam("prompt") String prompt,
-            @RequestParam(name = "model", required = false, defaultValue = "gpt-image-2") String model,
+            @RequestParam(name = "model", required = false, defaultValue = "gpt-image-2.5-sunburst") String model,
             @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
             @RequestParam(name = "outputFormat", required = false, defaultValue = "png") String outputFormat,
             @RequestParam(name = "n", required = false, defaultValue = "1") int n,
