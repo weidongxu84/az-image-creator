@@ -22,6 +22,22 @@ public class ImageRequestValidation {
     public String input_image_confidence;
     public String input_image_reason;
 
+    static ImageRequestValidation fromClassification(
+            ImageRequestClassification classification, String size, int providedInputImages) {
+        if (classification == null) {
+            throw new IllegalStateException("Image request validation returned no result");
+        }
+        ImageRequestValidation result = new ImageRequestValidation();
+        result.intended_orientation = classification.intended_orientation;
+        result.orientation_confidence = classification.orientation_confidence;
+        result.orientation_reason = classification.orientation_reason;
+        result.input_image_intent = classification.input_image_intent;
+        result.minimum_input_images = classification.minimum_input_images;
+        result.input_image_confidence = classification.input_image_confidence;
+        result.input_image_reason = classification.input_image_reason;
+        return enforcePolicy(result, size, providedInputImages);
+    }
+
     static ImageRequestValidation enforcePolicy(
             ImageRequestValidation modelResult, String size, int providedInputImages) {
         if (modelResult == null) {

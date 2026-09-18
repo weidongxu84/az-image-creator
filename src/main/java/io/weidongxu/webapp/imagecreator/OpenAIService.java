@@ -77,25 +77,23 @@ public class OpenAIService {
             You MUST output valid JSON with this exact schema:
             {
               "intended_orientation": "landscape|portrait|square|unspecified",
-              "selected_orientation": "landscape|portrait|square",
-              "orientation_matches": true,
               "orientation_confidence": "high|medium|low",
               "orientation_reason": "short explanation",
               "input_image_intent": "generation|single_image_edit|multi_image_edit|ambiguous",
               "minimum_input_images": 0,
-              "provided_input_images": 0,
-              "input_images_match": true,
               "input_image_confidence": "high|medium|low",
               "input_image_reason": "short explanation"
             }
 
             Orientation rules:
+            - Determine intended_orientation only from the image prompt.
             - Use "high" confidence only when the prompt explicitly states an orientation, aspect
               ratio, dimensions, or clearly equivalent composition such as vertical/full-body
               portrait or wide/panoramic landscape.
             - Use "unspecified" when the prompt does not clearly imply a canvas orientation.
-            - Copy the supplied selected orientation into selected_orientation.
-            - Set orientation_matches according to whether the intended and selected orientations agree.
+            - Explicit dimensions, aspect ratios, and horizontal/vertical terms take precedence
+              over photographic genre terms. For example, "4:3 horizontal close portrait" is
+              landscape; "portrait" describes the subject or genre in that phrase.
             - Do not infer portrait merely because a person is the subject.
 
             Input-image rules:
@@ -115,8 +113,6 @@ public class OpenAIService {
             - Multiple subjects in the desired output do not imply multiple input images.
             - If the requirement is ambiguous, use intent "ambiguous", minimum 0, and medium or low confidence.
             - Use high confidence only when the input-image requirement is explicit or unavoidable.
-            - Copy the supplied input-image count into provided_input_images.
-            - Set input_images_match according to whether the provided count meets the minimum.
 
             General rules:
             - Keep both reasons short and user-facing.
@@ -264,28 +260,23 @@ public class OpenAIService {
         if (localMode) {
             return ImageRequestValidation.allowWhenUnavailable(size, providedInputImages);
         }
-        String selectedOrientation = ImageOrientationValidation.selectedOrientation(size);
         String input = """
-                Selected size: %s
-                Selected orientation: %s
-                Provided input image count: %d
-
                 <image_prompt>
                 %s
                 </image_prompt>
-                """.formatted(size, selectedOrientation, providedInputImages, prompt);
+                """.formatted(prompt);
 
         try {
-            StructuredResponseCreateParams<ImageRequestValidation> params = ResponseCreateParams.builder()
+            StructuredResponseCreateParams<ImageRequestClassification> params = ResponseCreateParams.builder()
                     .model(validationDeployment)
                     .instructions(IMAGE_REQUEST_VALIDATION_PROMPT)
                     .input(input)
-                    .text(ImageRequestValidation.class)
+                    .text(ImageRequestClassification.class)
                     .build();
             var response = executeWithPreferredAuth(managedIdentityChatClient, apiKeyFallbackChatClient,
                     c -> c.responses().create(params));
 
-            ImageRequestValidation result = response.output().stream()
+            ImageRequestClassification result = response.output().stream()
                     .flatMap(item -> item.message().stream())
                     .flatMap(message -> message.content().stream())
                     .flatMap(content -> content.outputText().stream())
@@ -293,7 +284,7 @@ public class OpenAIService {
                     .orElseThrow(() -> new IllegalStateException(
                             "Image request validation returned no structured output"));
             ImageRequestValidation validation =
-                    ImageRequestValidation.enforcePolicy(result, size, providedInputImages);
+                    ImageRequestValidation.fromClassification(result, size, providedInputImages);
             log.info("Image request validation: orientation intended={}, selected={}, confidence={}, matches={}; "
                             + "input intent={}, minimum={}, provided={}, confidence={}, matches={}",
                     validation.intended_orientation, validation.selected_orientation,

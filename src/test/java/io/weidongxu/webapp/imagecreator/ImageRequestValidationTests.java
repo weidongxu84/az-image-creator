@@ -20,6 +20,27 @@ class ImageRequestValidationTests {
     }
 
     @Test
+    void computesOrientationMismatchOutsideTheModel() {
+        ImageRequestClassification classification = new ImageRequestClassification();
+        classification.intended_orientation = "landscape";
+        classification.orientation_confidence = "high";
+        classification.orientation_reason = "The prompt explicitly specifies 4:3 horizontal.";
+        classification.input_image_intent = "single_image_edit";
+        classification.minimum_input_images = 1;
+        classification.input_image_confidence = "high";
+        classification.input_image_reason = "The prompt requests an image edit.";
+
+        ImageRequestValidation result =
+                ImageRequestValidation.fromClassification(classification, "2448x3264", 1);
+
+        assertThat(result.intended_orientation).isEqualTo("landscape");
+        assertThat(result.selected_orientation).isEqualTo("portrait");
+        assertThat(result.orientation_matches).isFalse();
+        assertThat(result.provided_input_images).isEqualTo(1);
+        assertThat(result.input_images_match).isTrue();
+    }
+
+    @Test
     void allowsGenerationWithoutInputImages() {
         ImageRequestValidation result =
                 modelResult("generation", 0, "high");
