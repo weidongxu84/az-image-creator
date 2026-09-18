@@ -4,7 +4,6 @@ target/
 *.iml
 .vscode/
 *.env
-.env
 .secret/
 .secrets/
 .DS_Store

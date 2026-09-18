@@ -125,7 +125,6 @@ public class OpenAIService {
     private final String chatDeployment;
     private final String validationDeployment;
     private final boolean useAlternateImageEndpoint;
-    private final boolean localMode;
     private final ChatResponseMapper chatResponseMapper;
     private final OpenAIClient imageClient;
     private final OpenAIClient managedIdentityChatClient;
@@ -136,7 +135,6 @@ public class OpenAIService {
         this.chatDeployment = config.getOpenAIChatDeployment();
         this.validationDeployment = config.getOpenAIValidationDeployment();
         this.useAlternateImageEndpoint = config.isUseAlternateImageEndpoint();
-        this.localMode = config.isLocalMode();
         this.flareDeployment = useAlternateImageEndpoint
                 ? config.getAlternateImageFlareDeployment()
                 : config.getOpenAIFlareDeployment();
@@ -150,16 +148,12 @@ public class OpenAIService {
 
         TokenRequestContext ctx = new TokenRequestContext()
                 .addScopes("https://cognitiveservices.azure.com/.default");
-        if (localMode) {
-            this.managedIdentityChatClient = null;
-        } else {
-            this.managedIdentityChatClient = OpenAIOkHttpClient.builder()
-                    .baseUrl(chatBaseUrl)
-                    .apiKey("none")
-                    .credential(BearerTokenCredential.create(
-                            () -> config.getCredential().getToken(ctx).block().getToken()))
-                    .build();
-        }
+        this.managedIdentityChatClient = OpenAIOkHttpClient.builder()
+                .baseUrl(chatBaseUrl)
+                .apiKey("none")
+                .credential(BearerTokenCredential.create(
+                        () -> config.getCredential().getToken(ctx).block().getToken()))
+                .build();
 
         String apiKey = config.getOpenAIApiKey();
         if (useAlternateImageEndpoint) {
@@ -170,15 +164,6 @@ public class OpenAIService {
                     .build();
             this.imageFallbackClient = null;
             log.info("Using alternate API-key endpoint for image generation and editing.");
-        } else if (localMode) {
-            this.deployment = config.getOpenAIDeployment();
-            this.imageClient = OpenAIOkHttpClient.builder()
-                    .baseUrl(endpoint)
-                    .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
-                    .apiKey(apiKey)
-                    .build();
-            this.imageFallbackClient = null;
-            log.info("Using primary API-key endpoint for local image generation and editing.");
         } else {
             this.deployment = config.getOpenAIDeployment();
             this.imageClient = OpenAIOkHttpClient.builder()
@@ -197,7 +182,7 @@ public class OpenAIService {
                             .build();
         }
 
-        if (!localMode && apiKey != null && !apiKey.isBlank()) {
+        if (apiKey != null && !apiKey.isBlank()) {
             this.apiKeyFallbackChatClient = OpenAIOkHttpClient.builder()
                     .baseUrl(chatBaseUrl)
                     .apiKey(apiKey)
@@ -257,9 +242,6 @@ public class OpenAIService {
     }
 
     public ImageRequestValidation validateImageRequest(String prompt, String size, int providedInputImages) {
-        if (localMode) {
-            return ImageRequestValidation.allowWhenUnavailable(size, providedInputImages);
-        }
         String input = """
                 <image_prompt>
                 %s

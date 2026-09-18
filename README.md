@@ -32,21 +32,6 @@ through `AZURE_OPENAI_ALT_IMAGE_ENDPOINT` using `AZURE_OPENAI_ALT_IMAGE_API_KEY`
 `AZURE_OPENAI_ALT_SUNBURST_DEPLOYMENT` defaults to `gpt-image-2.5-sunburst`.
 Chat remains on the primary endpoint.
 
-## Local Run
-
-Local mode serves the existing Generate and Browse UI at `http://localhost:8080`.
-It uses an image endpoint API key and a Storage connection string. Chat, FLUX,
-and model-based request validation are unavailable locally.
-
-Copy `.env.example` to `.env`, set the values, then run:
-
-```powershell
-.\run-local.ps1
-```
-
-Set `LOCAL_SKIP_AUTH=true` to disable HTTP Basic authentication in local mode.
-This setting is ignored in cloud mode.
-
 ## License
 
 [MIT](LICENSE)

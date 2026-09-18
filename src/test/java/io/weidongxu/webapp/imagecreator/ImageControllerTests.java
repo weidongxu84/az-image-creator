@@ -96,7 +96,6 @@ class ImageControllerTests {
         ReflectionTestUtils.setField(controller, "openAIService", openAI);
         ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
         ReflectionTestUtils.setField(controller, "jobStore", new JobStore());
-        ReflectionTestUtils.setField(controller, "appConfig", mock(AppConfig.class));
 
         ResponseEntity<?> response = controller.generate(
                 "vertical portrait", "gpt-image-2", "3264x2448",
@@ -132,7 +131,6 @@ class ImageControllerTests {
         ReflectionTestUtils.setField(controller, "openAIService", openAI);
         ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
         ReflectionTestUtils.setField(controller, "jobStore", new JobStore());
-        ReflectionTestUtils.setField(controller, "appConfig", mock(AppConfig.class));
         MockMultipartFile image =
                 new MockMultipartFile("images", "subject.png", "image/png", new byte[] { 1 });
 
