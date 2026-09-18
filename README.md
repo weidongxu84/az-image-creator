@@ -35,8 +35,8 @@ Chat remains on the primary endpoint.
 ## Local Run
 
 Local mode serves the existing Generate and Browse UI at `http://localhost:8080`.
-It uses an image endpoint API key and a Storage connection string; Chat and
-model-based request validation are disabled.
+It uses an image endpoint API key and a Storage connection string. Chat, FLUX,
+and model-based request validation are unavailable locally.
 
 Copy `.env.example` to `.env`, set the values, then run:
 

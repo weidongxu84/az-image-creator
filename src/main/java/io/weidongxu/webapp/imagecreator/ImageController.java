@@ -37,13 +37,6 @@ public class ImageController {
     @Autowired
     private AppConfig appConfig;
 
-    @GetMapping("/capabilities")
-    public ResponseEntity<Map<String, Boolean>> capabilities() {
-        return ResponseEntity.ok(Map.of(
-                "chat", !appConfig.isLocalMode(),
-                "flux", !appConfig.isLocalMode()));
-    }
-
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> generate(
             @RequestParam("prompt") String prompt,

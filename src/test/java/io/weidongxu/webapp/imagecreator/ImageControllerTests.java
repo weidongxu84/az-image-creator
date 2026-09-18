@@ -34,20 +34,6 @@ class ImageControllerTests {
     }
 
     @Test
-    void disablesChatCapabilityInLocalMode() {
-        AppConfig config = mock(AppConfig.class);
-        when(config.isLocalMode()).thenReturn(true);
-        ImageController controller = new ImageController();
-        ReflectionTestUtils.setField(controller, "appConfig", config);
-
-        ResponseEntity<Map<String, Boolean>> response = controller.capabilities();
-
-        assertThat(response.getBody())
-                .containsEntry("chat", false)
-                .containsEntry("flux", false);
-    }
-
-    @Test
     void combinesMonthAndPromptFiltersWhenListingImages() {
         StorageService storage = mock(StorageService.class);
         when(storage.listImages("2026/08/", "sunset")).thenReturn(List.of(
