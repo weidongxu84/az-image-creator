@@ -14,6 +14,7 @@ public class AppConfig {
 
     private final String username;
     private final String personalToken;
+    private final boolean localMode;
     private final String openAIEndpoint;
     private final String openAIDeployment;
     private final String openAIFlareDeployment;
@@ -32,6 +33,7 @@ public class AppConfig {
     private final String storageAccountName;
     private final String storageContainerName;
     private final String storagePromptTableName;
+    private final String storageConnectionString;
     private final TokenCredential credential;
 
     public AppConfig() {
@@ -39,6 +41,7 @@ public class AppConfig {
 
         username = Objects.requireNonNull(config.get("PERSONAL_USERNAME"), "PERSONAL_USERNAME must be set");
         personalToken = Objects.requireNonNull(config.get("PERSONAL_TOKEN"), "PERSONAL_TOKEN must be set");
+        localMode = "local".equalsIgnoreCase(config.get("APP_MODE", "cloud"));
 
         openAIEndpoint = Objects.requireNonNull(config.get("AZURE_OPENAI_ENDPOINT"),
                 "AZURE_OPENAI_ENDPOINT must be set");
@@ -62,6 +65,8 @@ public class AppConfig {
         if (useAlternateImageEndpoint) {
             requireNonBlank(alternateImageEndpoint, "AZURE_OPENAI_ALT_IMAGE_ENDPOINT must be set");
             requireNonBlank(alternateImageApiKey, "AZURE_OPENAI_ALT_IMAGE_API_KEY must be set");
+        } else if (localMode) {
+            requireNonBlank(openAIApiKey, "AZURE_OPENAI_IMAGE_API_KEY must be set in local mode");
         }
 
         fluxEndpoint = config.get("AZURE_FLUX_ENDPOINT"); // optional: FLUX.2 model endpoint
@@ -71,8 +76,13 @@ public class AppConfig {
                 "STORAGE_ACCOUNT_NAME must be set");
         storageContainerName = config.get("STORAGE_CONTAINER_NAME", "images");
         storagePromptTableName = config.get("STORAGE_PROMPT_TABLE_NAME", "imageprompts");
+        storageConnectionString = config.get("AZURE_STORAGE_CONNECTION_STRING");
+        if (localMode) {
+            requireNonBlank(storageConnectionString,
+                    "AZURE_STORAGE_CONNECTION_STRING must be set in local mode");
+        }
 
-        credential = new ChainedTokenCredentialBuilder()
+        credential = localMode ? null : new ChainedTokenCredentialBuilder()
                 .addLast(new EnvironmentCredentialBuilder().build())
                 .addLast(new ManagedIdentityCredentialBuilder().build())
                 .build();
@@ -80,6 +90,7 @@ public class AppConfig {
 
     public String getUsername() { return username; }
     public String getPersonalToken() { return personalToken; }
+    public boolean isLocalMode() { return localMode; }
     public String getOpenAIEndpoint() { return openAIEndpoint; }
     public String getOpenAIDeployment() { return openAIDeployment; }
     public String getOpenAIFlareDeployment() { return openAIFlareDeployment; }
@@ -98,6 +109,10 @@ public class AppConfig {
     public String getStorageAccountName() { return storageAccountName; }
     public String getStorageContainerName() { return storageContainerName; }
     public String getStoragePromptTableName() { return storagePromptTableName; }
+    public String getStorageConnectionString() { return storageConnectionString; }
+    public boolean hasStorageConnectionString() {
+        return storageConnectionString != null && !storageConnectionString.isBlank();
+    }
     public TokenCredential getCredential() { return credential; }
 
     private static String requireNonBlank(String value, String message) {

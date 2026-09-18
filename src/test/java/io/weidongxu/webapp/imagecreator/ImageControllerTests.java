@@ -34,6 +34,20 @@ class ImageControllerTests {
     }
 
     @Test
+    void disablesChatCapabilityInLocalMode() {
+        AppConfig config = mock(AppConfig.class);
+        when(config.isLocalMode()).thenReturn(true);
+        ImageController controller = new ImageController();
+        ReflectionTestUtils.setField(controller, "appConfig", config);
+
+        ResponseEntity<Map<String, Boolean>> response = controller.capabilities();
+
+        assertThat(response.getBody())
+                .containsEntry("chat", false)
+                .containsEntry("flux", false);
+    }
+
+    @Test
     void combinesMonthAndPromptFiltersWhenListingImages() {
         StorageService storage = mock(StorageService.class);
         when(storage.listImages("2026/08/", "sunset")).thenReturn(List.of(
@@ -96,6 +110,7 @@ class ImageControllerTests {
         ReflectionTestUtils.setField(controller, "openAIService", openAI);
         ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
         ReflectionTestUtils.setField(controller, "jobStore", new JobStore());
+        ReflectionTestUtils.setField(controller, "appConfig", mock(AppConfig.class));
 
         ResponseEntity<?> response = controller.generate(
                 "vertical portrait", "gpt-image-2", "3264x2448",
@@ -131,6 +146,7 @@ class ImageControllerTests {
         ReflectionTestUtils.setField(controller, "openAIService", openAI);
         ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
         ReflectionTestUtils.setField(controller, "jobStore", new JobStore());
+        ReflectionTestUtils.setField(controller, "appConfig", mock(AppConfig.class));
         MockMultipartFile image =
                 new MockMultipartFile("images", "subject.png", "image/png", new byte[] { 1 });
 

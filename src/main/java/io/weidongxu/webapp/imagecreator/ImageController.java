@@ -34,6 +34,16 @@ public class ImageController {
     @Autowired
     private OpenAIService openAIService;
 
+    @Autowired
+    private AppConfig appConfig;
+
+    @GetMapping("/capabilities")
+    public ResponseEntity<Map<String, Boolean>> capabilities() {
+        return ResponseEntity.ok(Map.of(
+                "chat", !appConfig.isLocalMode(),
+                "flux", !appConfig.isLocalMode()));
+    }
+
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> generate(
             @RequestParam("prompt") String prompt,
@@ -44,6 +54,10 @@ public class ImageController {
             @RequestParam(name = "images", required = false) List<MultipartFile> images,
             @RequestParam(name = "mask", required = false) MultipartFile mask) throws IOException {
 
+        if (appConfig.isLocalMode() && model.toUpperCase().startsWith("FLUX")) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "FLUX is unavailable in local key-based mode."));
+        }
         if (n < 1) n = 1;
         if (n > 10) n = 10;
 
@@ -132,6 +146,9 @@ public class ImageController {
             @RequestPart(name = "history", required = false) List<ChatTurn> history,
             @RequestParam(name = "image", required = false) MultipartFile image) throws IOException {
 
+        if (appConfig.isLocalMode()) {
+            return ResponseEntity.notFound().build();
+        }
         if (message == null || message.isBlank()) {
             return ResponseEntity.badRequest().body(new ChatResponsePayload(
                     "Please provide a message.", "NONE", List.of(), "", false));

@@ -182,7 +182,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('generate')">✨ Generate</button>
   <button class="tab-btn" onclick="switchTab('browse')">🖼 Browse</button>
-  <button class="tab-btn" onclick="switchTab('chat')">💬 Chat</button>
+  <button class="tab-btn" id="chat-tab-btn" onclick="switchTab('chat')">💬 Chat</button>
 </div>
 
 <!-- ─────────── GENERATE TAB ─────────── -->
@@ -193,7 +193,7 @@
     <option value="gpt-image-2" selected>GPT Image 2</option>
     <option value="gpt-image-2.5-flare">GPT Image 2.5 Flare</option>
     <option value="gpt-image-2.5-sunburst">GPT Image 2.5 Sunburst</option>
-    <option value="FLUX.2-pro">FLUX.2 Pro</option>
+    <option value="FLUX.2-pro" id="flux-model-option">FLUX.2 Pro</option>
   </select>
 
   <label>Prompt <span style="color:#64748b;font-size:.8rem">(required)</span></label>
@@ -1122,6 +1122,23 @@ function switchTab(tab) {
   if (tab === 'browse') loadImages();
 }
 
+async function configureCapabilities() {
+  try {
+    const res = await apiFetch('/api/capabilities');
+    if (!res.ok) return;
+    const capabilities = await res.json();
+    if (!capabilities.chat) {
+      document.getElementById('chat-tab-btn').style.display = 'none';
+      document.getElementById('tab-chat').style.display = 'none';
+    }
+    if (!capabilities.flux) {
+      document.getElementById('flux-model-option').remove();
+    }
+  } catch {
+    // Keep the default cloud UI when capabilities cannot be loaded.
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function apiFetch(url, opts) {
   return fetch(url, opts);
@@ -1138,6 +1155,8 @@ function escAttr(str) {
 function formatDate(iso) {
   try { return new Date(iso).toLocaleString(); } catch { return iso; }
 }
+
+configureCapabilities();
 </script>
 </body>
 </html>

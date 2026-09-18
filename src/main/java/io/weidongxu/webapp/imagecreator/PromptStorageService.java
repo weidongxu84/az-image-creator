@@ -25,15 +25,23 @@ public class PromptStorageService {
     // this annotation — it was intermittently failing with "No default constructor found".
     @Autowired
     public PromptStorageService(AppConfig config) {
-        this(new TableClientBuilder()
-                .endpoint("https://" + config.getStorageAccountName() + ".table.core.windows.net")
-                .credential(config.getCredential())
-                .tableName(config.getStoragePromptTableName())
-                .buildClient());
+        this(buildTableClient(config));
     }
 
     PromptStorageService(TableClient tableClient) {
         this.tableClient = tableClient;
+    }
+
+    private static TableClient buildTableClient(AppConfig config) {
+        TableClientBuilder builder = new TableClientBuilder()
+                .tableName(config.getStoragePromptTableName());
+        if (config.hasStorageConnectionString()) {
+            return builder.connectionString(config.getStorageConnectionString()).buildClient();
+        }
+        return builder
+                .endpoint("https://" + config.getStorageAccountName() + ".table.core.windows.net")
+                .credential(config.getCredential())
+                .buildClient();
     }
 
     public void save(ImagePrompt prompt) {

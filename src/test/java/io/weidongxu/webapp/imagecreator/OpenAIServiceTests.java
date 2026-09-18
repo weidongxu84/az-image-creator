@@ -30,6 +30,7 @@ class OpenAIServiceTests {
     void routesFlareToAlternateDeployment() {
         AppConfig config = mock(AppConfig.class);
         when(config.isUseAlternateImageEndpoint()).thenReturn(true);
+        when(config.isLocalMode()).thenReturn(true);
         when(config.getOpenAIEndpoint()).thenReturn("https://primary.openai.azure.com");
         when(config.getAlternateImageEndpoint()).thenReturn("https://secondary.openai.azure.com");
         when(config.getAlternateImageApiKey()).thenReturn("test-key");
@@ -45,5 +46,7 @@ class OpenAIServiceTests {
                 .isEqualTo("gpt-image-2.5-flare-secondary");
         assertThat(service.getImageDeployment("gpt-image-2.5-sunburst"))
                 .isEqualTo("gpt-image-2.5-sunburst-secondary");
+        assertThat(service.validateImageRequest("portrait", "2448x3264", 0).orientation_matches)
+                .isTrue();
     }
 }

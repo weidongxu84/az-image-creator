@@ -32,6 +32,18 @@ through `AZURE_OPENAI_ALT_IMAGE_ENDPOINT` using `AZURE_OPENAI_ALT_IMAGE_API_KEY`
 `AZURE_OPENAI_ALT_SUNBURST_DEPLOYMENT` defaults to `gpt-image-2.5-sunburst`.
 Chat remains on the primary endpoint.
 
+## Local Run
+
+Local mode serves the existing Generate and Browse UI at `http://localhost:8080`.
+It uses an image endpoint API key and a Storage connection string; Chat and
+model-based request validation are disabled.
+
+Copy `.env.example` to `.env`, set the values, then run:
+
+```powershell
+.\run-local.ps1
+```
+
 ## License
 
 [MIT](LICENSE)

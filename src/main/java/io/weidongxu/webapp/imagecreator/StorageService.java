@@ -36,14 +36,24 @@ public class StorageService {
     private final BlobServiceClient serviceClient;
     private final BlobContainerClient containerClient;
     private final PromptStorageService promptStorageService;
+    private final boolean sharedKeyAuth;
 
     public StorageService(AppConfig config, PromptStorageService promptStorageService) {
-        this.serviceClient = new BlobServiceClientBuilder()
+        this.serviceClient = buildBlobServiceClient(config);
+        this.containerClient = serviceClient.getBlobContainerClient(config.getStorageContainerName());
+        this.promptStorageService = promptStorageService;
+        this.sharedKeyAuth = config.hasStorageConnectionString();
+    }
+
+    private static BlobServiceClient buildBlobServiceClient(AppConfig config) {
+        BlobServiceClientBuilder builder = new BlobServiceClientBuilder();
+        if (config.hasStorageConnectionString()) {
+            return builder.connectionString(config.getStorageConnectionString()).buildClient();
+        }
+        return builder
                 .endpoint("https://" + config.getStorageAccountName() + ".blob.core.windows.net")
                 .credential(config.getCredential())
                 .buildClient();
-        this.containerClient = serviceClient.getBlobContainerClient(config.getStorageContainerName());
-        this.promptStorageService = promptStorageService;
     }
 
     public String upload(byte[] imageData, String outputFormat) {
@@ -126,15 +136,19 @@ public class StorageService {
 
     public String generateSasUrl(String blobName) {
         OffsetDateTime now = OffsetDateTime.now();
-        UserDelegationKey delegationKey = serviceClient.getUserDelegationKey(
-                now.minusMinutes(5), now.plusHours(1));
-
         BlobClient blobClient = containerClient.getBlobClient(blobName);
         BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
         BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(
                 now.plusHours(1), permission);
 
-        String sasToken = blobClient.generateUserDelegationSas(sasValues, delegationKey);
+        String sasToken;
+        if (sharedKeyAuth) {
+            sasToken = blobClient.generateSas(sasValues);
+        } else {
+            UserDelegationKey delegationKey = serviceClient.getUserDelegationKey(
+                    now.minusMinutes(5), now.plusHours(1));
+            sasToken = blobClient.generateUserDelegationSas(sasValues, delegationKey);
+        }
         return blobClient.getBlobUrl() + "?" + sasToken;
     }
 
