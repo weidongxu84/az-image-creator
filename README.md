@@ -32,6 +32,12 @@ through `AZURE_OPENAI_ALT_IMAGE_ENDPOINT` using `AZURE_OPENAI_ALT_IMAGE_API_KEY`
 `AZURE_OPENAI_ALT_SUNBURST_DEPLOYMENT` defaults to `gpt-image-2.5-sunburst`.
 Chat remains on the primary endpoint.
 
+## Storage Authentication
+
+Storage uses managed identity with `STORAGE_ACCOUNT_NAME` by default. Set
+`STORAGE_ACCOUNT_KEY` to use shared-key authentication for Blob Storage,
+Table Storage, and generated image SAS links instead.
+
 ## License
 
 [MIT](LICENSE)

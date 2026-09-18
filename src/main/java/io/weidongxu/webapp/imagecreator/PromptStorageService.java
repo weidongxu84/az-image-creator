@@ -1,5 +1,6 @@
 package io.weidongxu.webapp.imagecreator;
 
+import com.azure.core.credential.AzureNamedKeyCredential;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.TableClientBuilder;
 import com.azure.data.tables.models.ListEntitiesOptions;
@@ -25,11 +26,18 @@ public class PromptStorageService {
     // this annotation — it was intermittently failing with "No default constructor found".
     @Autowired
     public PromptStorageService(AppConfig config) {
-        this(new TableClientBuilder()
+        this(buildTableClient(config));
+    }
+
+    static TableClient buildTableClient(AppConfig config) {
+        TableClientBuilder builder = new TableClientBuilder()
                 .endpoint("https://" + config.getStorageAccountName() + ".table.core.windows.net")
-                .credential(config.getCredential())
-                .tableName(config.getStoragePromptTableName())
-                .buildClient());
+                .tableName(config.getStoragePromptTableName());
+        if (config.hasStorageAccountKey()) {
+            return builder.credential(new AzureNamedKeyCredential(
+                    config.getStorageAccountName(), config.getStorageAccountKey())).buildClient();
+        }
+        return builder.credential(config.getCredential()).buildClient();
     }
 
     PromptStorageService(TableClient tableClient) {

@@ -12,6 +12,7 @@ import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
+import com.azure.storage.common.StorageSharedKeyCredential;
 import com.azure.core.util.BinaryData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,14 +37,29 @@ public class StorageService {
     private final BlobServiceClient serviceClient;
     private final BlobContainerClient containerClient;
     private final PromptStorageService promptStorageService;
+    private final boolean sharedKeyAuth;
 
     public StorageService(AppConfig config, PromptStorageService promptStorageService) {
-        this.serviceClient = new BlobServiceClientBuilder()
-                .endpoint("https://" + config.getStorageAccountName() + ".blob.core.windows.net")
-                .credential(config.getCredential())
-                .buildClient();
-        this.containerClient = serviceClient.getBlobContainerClient(config.getStorageContainerName());
+        this(buildBlobServiceClient(config), config.getStorageContainerName(),
+                promptStorageService, config.hasStorageAccountKey());
+    }
+
+    StorageService(BlobServiceClient serviceClient, String containerName,
+            PromptStorageService promptStorageService, boolean sharedKeyAuth) {
+        this.serviceClient = serviceClient;
+        this.containerClient = serviceClient.getBlobContainerClient(containerName);
         this.promptStorageService = promptStorageService;
+        this.sharedKeyAuth = sharedKeyAuth;
+    }
+
+    static BlobServiceClient buildBlobServiceClient(AppConfig config) {
+        BlobServiceClientBuilder builder = new BlobServiceClientBuilder()
+                .endpoint("https://" + config.getStorageAccountName() + ".blob.core.windows.net");
+        if (config.hasStorageAccountKey()) {
+            return builder.credential(new StorageSharedKeyCredential(
+                    config.getStorageAccountName(), config.getStorageAccountKey())).buildClient();
+        }
+        return builder.credential(config.getCredential()).buildClient();
     }
 
     public String upload(byte[] imageData, String outputFormat) {
@@ -126,15 +142,19 @@ public class StorageService {
 
     public String generateSasUrl(String blobName) {
         OffsetDateTime now = OffsetDateTime.now();
-        UserDelegationKey delegationKey = serviceClient.getUserDelegationKey(
-                now.minusMinutes(5), now.plusHours(1));
-
         BlobClient blobClient = containerClient.getBlobClient(blobName);
         BlobSasPermission permission = new BlobSasPermission().setReadPermission(true);
         BlobServiceSasSignatureValues sasValues = new BlobServiceSasSignatureValues(
                 now.plusHours(1), permission);
 
-        String sasToken = blobClient.generateUserDelegationSas(sasValues, delegationKey);
+        String sasToken;
+        if (sharedKeyAuth) {
+            sasToken = blobClient.generateSas(sasValues);
+        } else {
+            UserDelegationKey delegationKey = serviceClient.getUserDelegationKey(
+                    now.minusMinutes(5), now.plusHours(1));
+            sasToken = blobClient.generateUserDelegationSas(sasValues, delegationKey);
+        }
         return blobClient.getBlobUrl() + "?" + sasToken;
     }
 

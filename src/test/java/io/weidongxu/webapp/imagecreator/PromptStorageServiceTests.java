@@ -1,5 +1,6 @@
 package io.weidongxu.webapp.imagecreator;
 
+import com.azure.core.credential.TokenCredential;
 import com.azure.data.tables.TableClient;
 import com.azure.data.tables.models.TableEntity;
 import org.junit.jupiter.api.Test;
@@ -12,8 +13,42 @@ import java.util.Base64;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class PromptStorageServiceTests {
+
+    private static final String ACCOUNT_KEY =
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+    @Test
+    void buildsTableClientFromAccountKeyWhenConfigured() {
+        AppConfig config = mock(AppConfig.class);
+        when(config.hasStorageAccountKey()).thenReturn(true);
+        when(config.getStorageAccountName()).thenReturn("testaccount");
+        when(config.getStorageAccountKey()).thenReturn(ACCOUNT_KEY);
+        when(config.getStoragePromptTableName()).thenReturn("imageprompts");
+
+        TableClient client = PromptStorageService.buildTableClient(config);
+
+        assertThat(client.getTableEndpoint())
+                .isEqualTo("https://testaccount.table.core.windows.net/imageprompts");
+        assertThat(client.getTableName()).isEqualTo("imageprompts");
+    }
+
+    @Test
+    void buildsTableClientFromManagedIdentityWhenAccountKeyIsAbsent() {
+        AppConfig config = mock(AppConfig.class);
+        when(config.hasStorageAccountKey()).thenReturn(false);
+        when(config.getStorageAccountName()).thenReturn("managedaccount");
+        when(config.getStoragePromptTableName()).thenReturn("imageprompts");
+        when(config.getCredential()).thenReturn(mock(TokenCredential.class));
+
+        TableClient client = PromptStorageService.buildTableClient(config);
+
+        assertThat(client.getTableEndpoint())
+                .isEqualTo("https://managedaccount.table.core.windows.net/imageprompts");
+        assertThat(client.getTableName()).isEqualTo("imageprompts");
+    }
 
     @Test
     void savesAllImageProperties() {

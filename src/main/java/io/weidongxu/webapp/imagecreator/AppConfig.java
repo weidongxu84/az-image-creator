@@ -32,6 +32,7 @@ public class AppConfig {
     private final String storageAccountName;
     private final String storageContainerName;
     private final String storagePromptTableName;
+    private final String storageAccountKey;
     private final TokenCredential credential;
 
     public AppConfig() {
@@ -69,6 +70,7 @@ public class AppConfig {
 
         storageAccountName = Objects.requireNonNull(config.get("STORAGE_ACCOUNT_NAME"),
                 "STORAGE_ACCOUNT_NAME must be set");
+        storageAccountKey = config.get("STORAGE_ACCOUNT_KEY");
         storageContainerName = config.get("STORAGE_CONTAINER_NAME", "images");
         storagePromptTableName = config.get("STORAGE_PROMPT_TABLE_NAME", "imageprompts");
 
@@ -98,6 +100,10 @@ public class AppConfig {
     public String getStorageAccountName() { return storageAccountName; }
     public String getStorageContainerName() { return storageContainerName; }
     public String getStoragePromptTableName() { return storagePromptTableName; }
+    public String getStorageAccountKey() { return storageAccountKey; }
+    public boolean hasStorageAccountKey() {
+        return storageAccountKey != null && !storageAccountKey.isBlank();
+    }
     public TokenCredential getCredential() { return credential; }
 
     private static String requireNonBlank(String value, String message) {
