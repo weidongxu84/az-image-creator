@@ -16,6 +16,7 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import com.azure.core.util.BinaryData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.net.URLDecoder;
@@ -39,6 +40,7 @@ public class StorageService {
     private final PromptStorageService promptStorageService;
     private final boolean sharedKeyAuth;
 
+    @Autowired
     public StorageService(AppConfig config, PromptStorageService promptStorageService) {
         this(buildBlobServiceClient(config), config.getStorageContainerName(),
                 promptStorageService, config.hasStorageAccountKey());

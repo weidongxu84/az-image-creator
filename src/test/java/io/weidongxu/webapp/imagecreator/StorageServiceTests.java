@@ -7,6 +7,9 @@ import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.UserDelegationKey;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.lang.reflect.Constructor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -19,6 +22,14 @@ class StorageServiceTests {
 
     private static final String ACCOUNT_KEY =
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+    @Test
+    void marksProductionConstructorForSpringAutowiring() throws NoSuchMethodException {
+        Constructor<StorageService> constructor =
+                StorageService.class.getConstructor(AppConfig.class, PromptStorageService.class);
+
+        assertThat(constructor.getAnnotation(Autowired.class)).isNotNull();
+    }
 
     @Test
     void buildsBlobClientFromAccountKeyWhenConfigured() {
