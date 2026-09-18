@@ -597,9 +597,9 @@ function showResult(imageNames) {
   </div>`;
   for (const name of imageNames) {
     html += `<div style="margin-bottom:1.2rem">
-      <img src="/api/images/${encodeURIComponent(name)}" alt="generated image" style="max-width:100%;border-radius:10px;border:1px solid #2d3148">
+      <img src="/api/images/${encodeBlobPath(name)}" alt="generated image" style="max-width:100%;border-radius:10px;border:1px solid #2d3148">
       <div class="img-actions" style="margin-top:.5rem">
-        <a class="btn btn-secondary" href="/api/images/${encodeURIComponent(name)}" download="${escAttr(name.includes('/') ? name.split('/').pop() : name)}">⬇ Download</a>
+        <a class="btn btn-secondary" href="/api/images/${encodeBlobPath(name)}" download="${escAttr(name.includes('/') ? name.split('/').pop() : name)}">⬇ Download</a>
         <span style="color:#64748b;font-size:.8rem;margin-left:.5rem">${escHtml(name)}</span>
       </div>
     </div>`;
@@ -687,14 +687,14 @@ async function loadImages() {
     document.getElementById('browse-count').textContent = totalImages + ' image' + (totalImages !== 1 ? 's' : '');
     grid.innerHTML = images.map(img => `
       <div class="image-card" data-name="${escAttr(img.name)}" data-prompt="${escAttr(img.prompt)}">
-        <img class="thumb" src="/api/images/${encodeURIComponent(img.name)}" alt="${escAttr(img.name)}" loading="lazy">
+        <img class="thumb" src="/api/images/${encodeBlobPath(img.name)}" alt="${escAttr(img.name)}" loading="lazy">
         <div class="card-body">
           <div class="card-name">${escHtml(formatDate(img.lastModified))}</div>
           <div class="card-prompt" title="${escAttr(img.prompt || '')}">${escHtml(img.name)}</div>
         </div>
         <div class="card-footer">
           <button class="btn btn-secondary card-view-btn">View</button>
-          <a class="btn btn-primary" href="/api/images/${encodeURIComponent(img.name)}" download="${escAttr(img.name.includes('/') ? img.name.split('/').pop() : img.name)}">⬇</a>
+          <a class="btn btn-primary" href="/api/images/${encodeBlobPath(img.name)}" download="${escAttr(img.name.includes('/') ? img.name.split('/').pop() : img.name)}">⬇</a>
           <button class="btn btn-danger card-delete-btn">🗑</button>
         </div>
       </div>`).join('');
@@ -724,7 +724,7 @@ async function deleteImage(name, btn) {
   if (!confirm(`Delete "${name}"?`)) return;
   btn.disabled = true;
   try {
-    const res = await apiFetch('/api/images/' + encodeURIComponent(name), { method: 'DELETE' });
+    const res = await apiFetch('/api/images/' + encodeBlobPath(name), { method: 'DELETE' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     loadImages();
   } catch (e) {
@@ -735,7 +735,7 @@ async function deleteImage(name, btn) {
 
 // ─── Modal ───────────────────────────────────────────────────────────────────
 function openModal(name, prompt) {
-  document.getElementById('modal-img').src = '/api/images/' + encodeURIComponent(name);
+  document.getElementById('modal-img').src = '/api/images/' + encodeBlobPath(name);
   document.getElementById('modal-name').textContent = name;
   const promptEl = document.getElementById('modal-prompt');
   const copyBtn = document.getElementById('modal-copy-btn');
@@ -751,7 +751,7 @@ function openModal(name, prompt) {
   const dlBtn = document.getElementById('modal-dl-btn');
   dlBtn.onclick = () => {
     const a = document.createElement('a');
-    a.href = '/api/images/' + encodeURIComponent(name);
+    a.href = '/api/images/' + encodeBlobPath(name);
     a.download = name.includes('/') ? name.split('/').pop() : name;
     a.click();
   };
@@ -784,7 +784,7 @@ async function shareImage() {
   btn.disabled = true;
   btn.textContent = '🔗 Loading…';
   try {
-    const res = await apiFetch('/api/images-sas/' + encodeURIComponent(name));
+    const res = await apiFetch('/api/images-sas/' + encodeBlobPath(name));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     await navigator.clipboard.writeText(data.url);
@@ -1142,6 +1142,10 @@ async function configureCapabilities() {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function apiFetch(url, opts) {
   return fetch(url, opts);
+}
+
+function encodeBlobPath(name) {
+  return String(name).split('/').map(encodeURIComponent).join('/');
 }
 
 function escHtml(str) {
