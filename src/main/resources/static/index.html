@@ -201,8 +201,9 @@
 
   <label>Size</label>
   <select id="size">
+    <option value="auto" selected>Auto (aspect ratio from prompt)</option>
     <option value="3264x2448">3264 × 2448 (4:3 landscape)</option>
-    <option value="2448x3264" selected>2448 × 3264 (3:4 portrait)</option>
+    <option value="2448x3264">2448 × 3264 (3:4 portrait)</option>
     <option value="2880x2880">2880 × 2880 (1:1 square)</option>
     <option value="3840x2160">3840 × 2160 (16:9 / 4K)</option>
     <option value="2160x3840">2160 × 3840 (9:16)</option>
@@ -440,6 +441,7 @@ async function startGeneration() {
   const baseSize = document.getElementById('size').value;
   const previewMode = document.getElementById('preview-toggle').checked;
   formData.append('size', previewMode ? (PREVIEW_SIZES[baseSize] || baseSize) : baseSize);
+  formData.append('preview', previewMode);
   formData.append('outputFormat', document.getElementById('output-format').value);
   formData.append('n', document.getElementById('image-count').value);
   for (const f of selectedFiles) formData.append('images', f);
@@ -453,6 +455,9 @@ async function startGeneration() {
       const errorData = await res.json().catch(() => null);
       if (errorData && errorData.validation) {
         const validation = errorData.validation;
+        if (validation.size_selection_required) {
+          throw new Error(`${errorData.error} ${validation.reason}`);
+        }
         throw new Error(`${errorData.error} ${validation.reason} ` +
           `(prompt: ${validation.intended_orientation}, selected: ${validation.selected_orientation})`);
       }

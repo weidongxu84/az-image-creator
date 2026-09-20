@@ -38,7 +38,8 @@ public class ImageController {
     public ResponseEntity<?> generate(
             @RequestParam("prompt") String prompt,
             @RequestParam(name = "model", required = false, defaultValue = "gpt-image-2.5-sunburst") String model,
-            @RequestParam(name = "size", required = false, defaultValue = "3264x2448") String size,
+            @RequestParam(name = "size", required = false, defaultValue = "auto") String size,
+            @RequestParam(name = "preview", required = false, defaultValue = "true") boolean preview,
             @RequestParam(name = "outputFormat", required = false, defaultValue = "png") String outputFormat,
             @RequestParam(name = "n", required = false, defaultValue = "1") int n,
             @RequestParam(name = "images", required = false) List<MultipartFile> images,
@@ -53,9 +54,17 @@ public class ImageController {
 
         ImageRequestValidation validation;
         try {
-            validation = openAIService.validateImageRequest(prompt, size, validImages.size());
+            validation = openAIService.validateImageRequest(prompt, size, preview, validImages.size());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid image size."));
+        }
+        if (validation.size_selection_required) {
+            log.info("Image request requires explicit size selection: intended={}, confidence={}, reason={}",
+                    validation.intended_orientation, validation.orientation_confidence,
+                    validation.orientation_reason);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Could not confidently select an image size.",
+                    "validation", validation.orientationValidation()));
         }
         if (!validation.orientation_matches) {
             ImageOrientationValidation orientationValidation = validation.orientationValidation();
@@ -91,7 +100,8 @@ public class ImageController {
         byte[] maskBytes = (mask != null && !mask.isEmpty()) ? mask.getBytes() : null;
 
         String jobId = jobStore.createJob();
-        imageGenerationService.generateImage(jobId, model, prompt, size, imageBytes, imageFilenames, maskBytes, outputFormat, n);
+        imageGenerationService.generateImage(jobId, model, prompt, validation.resolved_size,
+                imageBytes, imageFilenames, maskBytes, outputFormat, n);
 
         log.info("Started job {} for prompt: {}", jobId, prompt.length() > 80
                 ? prompt.substring(0, 80) + "…" : prompt);

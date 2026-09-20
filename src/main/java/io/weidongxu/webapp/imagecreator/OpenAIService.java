@@ -241,7 +241,8 @@ public class OpenAIService {
         }
     }
 
-    public ImageRequestValidation validateImageRequest(String prompt, String size, int providedInputImages) {
+    public ImageRequestValidation validateImageRequest(
+            String prompt, String size, boolean preview, int providedInputImages) {
         String input = """
                 <image_prompt>
                 %s
@@ -266,7 +267,7 @@ public class OpenAIService {
                     .orElseThrow(() -> new IllegalStateException(
                             "Image request validation returned no structured output"));
             ImageRequestValidation validation =
-                    ImageRequestValidation.fromClassification(result, size, providedInputImages);
+                    ImageRequestValidation.fromClassification(result, size, preview, providedInputImages);
             log.info("Image request validation: orientation intended={}, selected={}, confidence={}, matches={}; "
                             + "input intent={}, minimum={}, provided={}, confidence={}, matches={}",
                     validation.intended_orientation, validation.selected_orientation,
@@ -277,8 +278,12 @@ public class OpenAIService {
             return validation;
         } catch (OpenAIServiceException | OpenAIInvalidDataException | IllegalStateException e) {
             log.warn("Image request validation unavailable; allowing image request: {}", e.getMessage());
-            return ImageRequestValidation.allowWhenUnavailable(size, providedInputImages);
+            return ImageRequestValidation.allowWhenUnavailable(size, preview, providedInputImages);
         }
+    }
+
+    public ImageRequestValidation validateImageRequest(String prompt, String size, int providedInputImages) {
+        return validateImageRequest(prompt, size, false, providedInputImages);
     }
 
     public ImageOrientationValidation validateImageOrientation(String prompt, String size) {

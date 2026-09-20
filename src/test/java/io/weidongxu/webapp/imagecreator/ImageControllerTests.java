@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -89,7 +92,7 @@ class ImageControllerTests {
         validation.input_images_match = true;
         validation.input_image_confidence = "high";
         validation.input_image_reason = "No input images are required.";
-        when(openAI.validateImageRequest("vertical portrait", "3264x2448", 0))
+        when(openAI.validateImageRequest("vertical portrait", "3264x2448", false, 0))
                 .thenReturn(validation);
 
         ImageController controller = new ImageController();
@@ -99,7 +102,7 @@ class ImageControllerTests {
 
         ResponseEntity<?> response = controller.generate(
                 "vertical portrait", "gpt-image-2", "3264x2448",
-                "png", 1, null, null);
+                false, "png", 1, null, null);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody()).isInstanceOf(Map.class);
@@ -124,7 +127,7 @@ class ImageControllerTests {
         validation.input_images_match = false;
         validation.input_image_confidence = "high";
         validation.input_image_reason = "The prompt requires two source images.";
-        when(openAI.validateImageRequest("Two-Subject Image Edit", "2448x3264", 1))
+        when(openAI.validateImageRequest("Two-Subject Image Edit", "2448x3264", false, 1))
                 .thenReturn(validation);
 
         ImageController controller = new ImageController();
@@ -136,13 +139,78 @@ class ImageControllerTests {
 
         ResponseEntity<?> response = controller.generate(
                 "Two-Subject Image Edit", "gpt-image-2", "2448x3264",
-                "png", 1, List.of(image), null);
+                false, "png", 1, List.of(image), null);
 
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody()).isInstanceOf(Map.class);
         assertThat(((Map<?, ?>) response.getBody()).get("inputImageValidation"))
                 .isInstanceOf(InputImageValidation.class);
-        verify(openAI).validateImageRequest("Two-Subject Image Edit", "2448x3264", 1);
+        verify(openAI).validateImageRequest("Two-Subject Image Edit", "2448x3264", false, 1);
         verifyNoInteractions(generation);
+    }
+
+    @Test
+    void rejectsAutoSizeWhenOrientationIsUncertain() throws Exception {
+        OpenAIService openAI = mock(OpenAIService.class);
+        ImageGenerationService generation = mock(ImageGenerationService.class);
+        ImageRequestValidation validation = new ImageRequestValidation();
+        validation.intended_orientation = "unspecified";
+        validation.selected_orientation = "auto";
+        validation.orientation_matches = true;
+        validation.orientation_confidence = "low";
+        validation.orientation_reason = "Please choose a size.";
+        validation.resolved_size = "auto";
+        validation.size_selection_required = true;
+        when(openAI.validateImageRequest("abstract shapes", "auto", true, 0))
+                .thenReturn(validation);
+
+        ImageController controller = new ImageController();
+        ReflectionTestUtils.setField(controller, "openAIService", openAI);
+        ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
+        ReflectionTestUtils.setField(controller, "jobStore", new JobStore());
+
+        ResponseEntity<?> response = controller.generate(
+                "abstract shapes", "gpt-image-2", "auto",
+                true, "png", 1, null, null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(((Map<?, ?>) response.getBody()).get("error"))
+                .isEqualTo("Could not confidently select an image size.");
+        verifyNoInteractions(generation);
+    }
+
+    @Test
+    void generatesWithResolvedAutoSize() throws Exception {
+        OpenAIService openAI = mock(OpenAIService.class);
+        ImageGenerationService generation = mock(ImageGenerationService.class);
+        ImageRequestValidation validation = new ImageRequestValidation();
+        validation.intended_orientation = "portrait";
+        validation.selected_orientation = "portrait";
+        validation.orientation_matches = true;
+        validation.orientation_confidence = "high";
+        validation.orientation_reason = "The prompt requests a vertical composition.";
+        validation.resolved_size = "1088x1440";
+        validation.input_image_intent = "generation";
+        validation.minimum_input_images = 0;
+        validation.provided_input_images = 0;
+        validation.input_images_match = true;
+        validation.input_image_confidence = "high";
+        validation.input_image_reason = "No input images are required.";
+        when(openAI.validateImageRequest("vertical poster", "auto", true, 0))
+                .thenReturn(validation);
+
+        ImageController controller = new ImageController();
+        ReflectionTestUtils.setField(controller, "openAIService", openAI);
+        ReflectionTestUtils.setField(controller, "imageGenerationService", generation);
+        ReflectionTestUtils.setField(controller, "jobStore", new JobStore());
+
+        ResponseEntity<?> response = controller.generate(
+                "vertical poster", "gpt-image-2", "auto",
+                true, "png", 1, null, null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        verify(generation).generateImage(
+                anyString(), eq("gpt-image-2"), eq("vertical poster"), eq("1088x1440"),
+                isNull(), isNull(), isNull(), eq("png"), eq(1));
     }
 }

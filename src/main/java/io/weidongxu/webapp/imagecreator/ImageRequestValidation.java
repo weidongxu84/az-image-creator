@@ -15,6 +15,8 @@ public class ImageRequestValidation {
     public boolean orientation_matches;
     public String orientation_confidence;
     public String orientation_reason;
+    public String resolved_size;
+    public boolean size_selection_required;
     public String input_image_intent;
     public int minimum_input_images;
     public int provided_input_images;
@@ -23,7 +25,7 @@ public class ImageRequestValidation {
     public String input_image_reason;
 
     static ImageRequestValidation fromClassification(
-            ImageRequestClassification classification, String size, int providedInputImages) {
+            ImageRequestClassification classification, String size, boolean preview, int providedInputImages) {
         if (classification == null) {
             throw new IllegalStateException("Image request validation returned no result");
         }
@@ -35,11 +37,16 @@ public class ImageRequestValidation {
         result.minimum_input_images = classification.minimum_input_images;
         result.input_image_confidence = classification.input_image_confidence;
         result.input_image_reason = classification.input_image_reason;
-        return enforcePolicy(result, size, providedInputImages);
+        return enforcePolicy(result, size, preview, providedInputImages);
+    }
+
+    static ImageRequestValidation fromClassification(
+            ImageRequestClassification classification, String size, int providedInputImages) {
+        return fromClassification(classification, size, false, providedInputImages);
     }
 
     static ImageRequestValidation enforcePolicy(
-            ImageRequestValidation modelResult, String size, int providedInputImages) {
+            ImageRequestValidation modelResult, String size, boolean preview, int providedInputImages) {
         if (modelResult == null) {
             throw new IllegalStateException("Image request validation returned no result");
         }
@@ -53,7 +60,7 @@ public class ImageRequestValidation {
         orientation.matches = modelResult.orientation_matches;
         orientation.confidence = modelResult.orientation_confidence;
         orientation.reason = modelResult.orientation_reason;
-        ImageOrientationValidation.enforcePolicy(orientation, size);
+        ImageOrientationValidation.enforcePolicy(orientation, size, preview);
 
         String intent = normalize(modelResult.input_image_intent);
         String confidence = normalize(modelResult.input_image_confidence);
@@ -85,6 +92,8 @@ public class ImageRequestValidation {
         modelResult.orientation_matches = orientation.matches;
         modelResult.orientation_confidence = orientation.confidence;
         modelResult.orientation_reason = orientation.reason;
+        modelResult.resolved_size = orientation.resolved_size;
+        modelResult.size_selection_required = orientation.size_selection_required;
         modelResult.input_image_intent = intent;
         modelResult.provided_input_images = providedInputImages;
         modelResult.input_images_match = !highConfidenceShortage;
@@ -97,13 +106,23 @@ public class ImageRequestValidation {
         return modelResult;
     }
 
-    static ImageRequestValidation allowWhenUnavailable(String size, int providedInputImages) {
+    static ImageRequestValidation enforcePolicy(
+            ImageRequestValidation modelResult, String size, int providedInputImages) {
+        return enforcePolicy(modelResult, size, false, providedInputImages);
+    }
+
+    static ImageRequestValidation allowWhenUnavailable(
+            String size, boolean preview, int providedInputImages) {
         ImageRequestValidation result = new ImageRequestValidation();
-        result.intended_orientation = "unspecified";
-        result.selected_orientation = ImageOrientationValidation.selectedOrientation(size);
-        result.orientation_matches = true;
-        result.orientation_confidence = "low";
-        result.orientation_reason = "Request validation was unavailable, so the request was allowed.";
+        ImageOrientationValidation orientation =
+                ImageOrientationValidation.allowWhenUnavailable(size, preview);
+        result.intended_orientation = orientation.intended_orientation;
+        result.selected_orientation = orientation.selected_orientation;
+        result.orientation_matches = orientation.matches;
+        result.orientation_confidence = orientation.confidence;
+        result.orientation_reason = orientation.reason;
+        result.resolved_size = orientation.resolved_size;
+        result.size_selection_required = orientation.size_selection_required;
         result.input_image_intent = "ambiguous";
         result.minimum_input_images = 0;
         result.provided_input_images = providedInputImages;
@@ -113,6 +132,10 @@ public class ImageRequestValidation {
         return result;
     }
 
+    static ImageRequestValidation allowWhenUnavailable(String size, int providedInputImages) {
+        return allowWhenUnavailable(size, false, providedInputImages);
+    }
+
     ImageOrientationValidation orientationValidation() {
         ImageOrientationValidation result = new ImageOrientationValidation();
         result.intended_orientation = intended_orientation;
@@ -120,6 +143,8 @@ public class ImageRequestValidation {
         result.matches = orientation_matches;
         result.confidence = orientation_confidence;
         result.reason = orientation_reason;
+        result.resolved_size = resolved_size;
+        result.size_selection_required = size_selection_required;
         return result;
     }
 

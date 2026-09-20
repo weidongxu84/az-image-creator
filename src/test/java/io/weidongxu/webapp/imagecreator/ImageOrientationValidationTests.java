@@ -37,6 +37,37 @@ class ImageOrientationValidationTests {
     }
 
     @Test
+    void resolvesHighConfidenceAutoSizeForPreviewAndFullGeneration() {
+        ImageOrientationValidation portrait = modelResult("portrait", "high");
+        ImageOrientationValidation landscape = modelResult("landscape", "high");
+        ImageOrientationValidation square = modelResult("square", "high");
+
+        ImageOrientationValidation.enforcePolicy(portrait, "auto", true);
+        ImageOrientationValidation.enforcePolicy(landscape, "auto", false);
+        ImageOrientationValidation.enforcePolicy(square, "auto", true);
+
+        assertThat(portrait.resolved_size).isEqualTo("1088x1440");
+        assertThat(portrait.size_selection_required).isFalse();
+        assertThat(landscape.resolved_size).isEqualTo("3264x2448");
+        assertThat(landscape.size_selection_required).isFalse();
+        assertThat(square.resolved_size).isEqualTo("1440x1440");
+        assertThat(square.size_selection_required).isFalse();
+    }
+
+    @Test
+    void requiresExplicitSizeWhenAutoOrientationIsNotHighConfidence() {
+        ImageOrientationValidation uncertain = modelResult("portrait", "medium");
+        ImageOrientationValidation unspecified = modelResult("unspecified", "high");
+
+        ImageOrientationValidation.enforcePolicy(uncertain, "auto", true);
+        ImageOrientationValidation.enforcePolicy(unspecified, "auto", true);
+
+        assertThat(uncertain.size_selection_required).isTrue();
+        assertThat(unspecified.size_selection_required).isTrue();
+        assertThat(uncertain.resolved_size).isEqualTo("auto");
+    }
+
+    @Test
     void rejectsInvalidModelOutputAndSize() {
         assertThatThrownBy(() ->
                 ImageOrientationValidation.enforcePolicy(modelResult("diagonal", "high"), "1024x1024"))
