@@ -164,6 +164,15 @@
   .modal-overlay.hidden { display: none; }
   .modal-box { background: #1a1d27; border: 1px solid #2d3148; border-radius: 12px; max-width: 90vw; max-height: 90vh; overflow: auto; padding: 1.2rem; display: flex; flex-direction: column; gap: .8rem; }
   .modal-box img { max-width: 100%; max-height: 75vh; border-radius: 8px; display: block; margin: 0 auto; }
+  .saved-prompts-box { margin-top: 1.5rem; padding: 1rem; border: 1px solid #2d3148; border-radius: 10px; background: #1a1d27; }
+  .saved-prompts-box h2, .saved-prompts-dialog h2 { font-size: 1rem; font-weight: 600; }
+  .saved-prompts-status { margin-top: .7rem; font-size: .85rem; color: #94a3b8; }
+  .saved-prompts-status.error { color: #fca5a5; }
+  .saved-prompts-dialog { width: min(600px, 90vw); max-height: 85vh; margin: auto; padding: 1.2rem; background: #1a1d27; color: #e2e8f0; border: 1px solid #2d3148; border-radius: 12px; }
+  .saved-prompts-dialog::backdrop { background: rgba(0,0,0,.8); }
+  .saved-prompt-row { display: flex; gap: .6rem; align-items: center; padding: .8rem 0; border-bottom: 1px solid #2d3148; }
+  .saved-prompt-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .saved-prompt-row .btn { padding: .4rem .7rem; }
   /* Mask canvas */
   .mask-section { margin-top: 1rem; }
   .mask-canvas-wrap { position: relative; display: inline-block; cursor: crosshair; max-width: 100%; }
@@ -265,6 +274,15 @@
   <div class="status-area" id="status-area" style="display:none"></div>
   <div class="result-image" id="result-area" style="display:none"></div>
 
+  <div class="saved-prompts-box">
+    <h2>Saved prompts</h2>
+    <div class="actions">
+      <button class="btn btn-secondary" id="save-prompt-btn" onclick="saveCurrentPrompt()">Save</button>
+      <button class="btn btn-secondary" id="load-prompt-btn" onclick="openSavedPrompts()">Load</button>
+    </div>
+    <p class="saved-prompts-status" id="saved-prompts-status" role="status"></p>
+  </div>
+
 </div>
 
 <!-- ─────────── BROWSE TAB ─────────── -->
@@ -337,6 +355,15 @@
   </div>
 </div>
 
+<dialog id="saved-prompts-dialog" class="saved-prompts-dialog" aria-labelledby="saved-prompts-title">
+  <h2 id="saved-prompts-title">Load a saved prompt</h2>
+  <p class="saved-prompts-status" id="saved-prompts-dialog-status" role="status"></p>
+  <div id="saved-prompts-list"></div>
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="document.getElementById('saved-prompts-dialog').close()">Close</button>
+  </div>
+</dialog>
+
 <script>
 // ─── Auto-resize textareas ───────────────────────────────────────────────────
 function autoResize(el) {
@@ -347,6 +374,122 @@ document.querySelectorAll('textarea').forEach(ta => {
   ta.addEventListener('input', () => autoResize(ta));
   autoResize(ta);
 });
+
+let savedPrompts = [];
+
+function savedPromptStatus(message, error = false, dialog = false) {
+  const element = document.getElementById(dialog ? 'saved-prompts-dialog-status' : 'saved-prompts-status');
+  element.textContent = message;
+  element.classList.toggle('error', error);
+}
+
+async function savedPromptRequest(options) {
+  const response = await apiFetch('/api/saved-prompts' + (options?.query || ''), options);
+  if (!response.ok) {
+    const text = await response.text();
+    let message = `Request failed (HTTP ${response.status}).`;
+    if (response.headers.get('content-type')?.includes('application/json')) {
+      const body = JSON.parse(text);
+      message = body.error || message;
+    }
+    throw new Error(message);
+  }
+  return response.status === 204 ? null : response.json();
+}
+
+async function saveCurrentPrompt() {
+  const promptText = document.getElementById('prompt').value;
+  if (!promptText.trim()) {
+    savedPromptStatus('Enter a prompt before saving.', true);
+    return;
+  }
+  const name = window.prompt('Name for this prompt (unique, up to 100 characters):');
+  if (name === null) return;
+  if (!name.trim()) {
+    savedPromptStatus('Name is required.', true);
+    return;
+  }
+  const button = document.getElementById('save-prompt-btn');
+  button.disabled = true;
+  savedPromptStatus('Saving...');
+  try {
+    const saved = await savedPromptRequest({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, prompt: promptText })
+    });
+    savedPromptStatus(`Saved "${saved.name}".`);
+  } catch (e) {
+    savedPromptStatus('Could not save prompt: ' + e.message, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function openSavedPrompts() {
+  const button = document.getElementById('load-prompt-btn');
+  button.disabled = true;
+  savedPrompts = [];
+  document.getElementById('saved-prompts-list').replaceChildren();
+  savedPromptStatus('Loading...', false, true);
+  document.getElementById('saved-prompts-dialog').showModal();
+  try {
+    savedPrompts = await savedPromptRequest();
+    renderSavedPrompts();
+  } catch (e) {
+    savedPromptStatus('Could not load saved prompts: ' + e.message, true, true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderSavedPrompts() {
+  const list = document.getElementById('saved-prompts-list');
+  list.replaceChildren();
+  savedPromptStatus(savedPrompts.length ? '' : 'No saved prompts yet.', false, true);
+  for (const saved of savedPrompts) {
+    const row = document.createElement('div');
+    row.className = 'saved-prompt-row';
+    const name = document.createElement('span');
+    name.className = 'saved-prompt-name';
+    name.textContent = saved.name;
+    const load = document.createElement('button');
+    load.className = 'btn btn-primary';
+    load.textContent = 'Load';
+    load.setAttribute('aria-label', 'Load ' + saved.name);
+    load.onclick = () => {
+      const prompt = document.getElementById('prompt');
+      prompt.value = saved.prompt;
+      autoResize(prompt);
+      document.getElementById('saved-prompts-dialog').close();
+      savedPromptStatus(`Loaded "${saved.name}".`);
+      prompt.focus();
+    };
+    const remove = document.createElement('button');
+    remove.className = 'btn btn-danger';
+    remove.textContent = 'Delete';
+    remove.setAttribute('aria-label', 'Delete ' + saved.name);
+    remove.onclick = async () => {
+      if (!confirm(`Delete saved prompt "${saved.name}"? This cannot be undone.`)) return;
+      row.querySelectorAll('button').forEach(button => button.disabled = true);
+      document.getElementById('load-prompt-btn').disabled = true;
+      savedPromptStatus('Deleting...', false, true);
+      try {
+        await savedPromptRequest({ method: 'DELETE', query: '?name=' + encodeURIComponent(saved.name) });
+        savedPrompts = savedPrompts.filter(item => item.name !== saved.name);
+        renderSavedPrompts();
+        savedPromptStatus(`Deleted "${saved.name}".`, false, true);
+      } catch (e) {
+        savedPromptStatus('Could not delete prompt: ' + e.message, true, true);
+      } finally {
+        row.querySelectorAll('button').forEach(button => button.disabled = false);
+        document.getElementById('load-prompt-btn').disabled = false;
+      }
+    };
+    row.append(name, load, remove);
+    list.append(row);
+  }
+}
 
 // ─── File selection ───────────────────────────────────────────────────────────
 const selectedFiles = [];

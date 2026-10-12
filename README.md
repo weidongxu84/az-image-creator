@@ -7,6 +7,7 @@ A web application for generating images using Azure OpenAI, with a browser-based
 - **Generate** images from a text prompt, with optional reference image uploads and configurable output size
 - **Chat** with a multimodal assistant for critique, improvement actions, and better prompt suggestions (optional image per turn)
 - **Browse** previously generated images, view their prompts, download, or delete them
+- **Saved prompts** on Generate: save prompt text under a unique name, load it, or delete it with confirmation
 - Asynchronous generation — the UI polls for completion so long-running requests don't time out in the browser
 - Images are stored in Azure Blob Storage; prompt metadata is stored in Azure Table Storage
 
@@ -37,6 +38,18 @@ Chat remains on the primary endpoint.
 Storage uses managed identity with `STORAGE_ACCOUNT_NAME` by default. Set
 `STORAGE_ACCOUNT_KEY` to use shared-key authentication for Blob Storage,
 Table Storage, and generated image SAS links instead.
+
+## Saved Prompts
+
+Prompt text is stored as JSON in the private `saved-prompts` container in
+`STORAGE_ACCOUNT_NAME`. Override its name with `STORAGE_SAVED_PROMPT_CONTAINER_NAME`;
+it must differ from the image container. The app creates it on first save or load.
+The managed identity needs Storage Blob Data Contributor at account scope (or
+provision the container and grant that role at container scope).
+
+Names are trimmed, case-insensitive, and limited to 100 characters. Duplicate names
+never overwrite existing prompts. Prompt text is limited to 100,000 characters.
+Loading changes only the prompt, not generation settings or reference images.
 
 ## License
 
