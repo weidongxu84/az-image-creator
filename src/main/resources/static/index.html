@@ -13,8 +13,8 @@
   header { padding: 1.2rem 2rem; background: #1a1d27; border-bottom: 1px solid #2d3148; display: flex; align-items: center; gap: 1rem; }
   header h1 { font-size: 1.3rem; font-weight: 600; color: #c8b5f8; }
 
-  .tabs { display: flex; padding: 0 2rem; background: #1a1d27; border-bottom: 1px solid #2d3148; }
-  .tab-btn { padding: .75rem 1.5rem; cursor: pointer; border: none; background: none; color: #94a3b8; font-size: .95rem; border-bottom: 2px solid transparent; transition: all .2s; }
+  .tabs { display: flex; overflow-x: auto; padding: 0 2rem; background: #1a1d27; border-bottom: 1px solid #2d3148; }
+  .tab-btn { padding: .75rem 1.5rem; flex-shrink: 0; white-space: nowrap; cursor: pointer; border: none; background: none; color: #94a3b8; font-size: .95rem; border-bottom: 2px solid transparent; transition: all .2s; }
   .tab-btn.active { color: #c8b5f8; border-bottom-color: #c8b5f8; }
   .tab-btn:hover:not(.active) { color: #cbd5e1; }
 
@@ -173,6 +173,17 @@
   .saved-prompt-row { display: flex; gap: .6rem; align-items: center; padding: .8rem 0; border-bottom: 1px solid #2d3148; }
   .saved-prompt-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .saved-prompt-row .btn { padding: .4rem .7rem; }
+  .prompt-manager { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(0, 3fr); gap: 1.2rem; margin-top: 1rem; }
+  .prompt-manager-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: .4rem; }
+  .prompt-manager-list .btn { text-align: left; overflow-wrap: anywhere; }
+  .prompt-manager-list .btn[aria-pressed=true] { background: #6d54c7; color: #fff; }
+  .prompt-manager-editor { min-width: 0; }
+  .prompt-manager-editor .actions { flex-wrap: wrap; }
+  #managed-prompt-name { overflow-wrap: anywhere; color: #c8b5f8; }
+  @media (max-width: 700px) {
+    .prompt-manager { grid-template-columns: 1fr; }
+    .prompt-manager-list { max-height: 25vh; }
+  }
   /* Mask canvas */
   .mask-section { margin-top: 1rem; }
   .mask-canvas-wrap { position: relative; display: inline-block; cursor: crosshair; max-width: 100%; }
@@ -191,6 +202,7 @@
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('generate')">✨ Generate</button>
   <button class="tab-btn" onclick="switchTab('browse')">🖼 Browse</button>
+  <button class="tab-btn" onclick="switchTab('saved-prompts')">Saved prompts</button>
   <button class="tab-btn" onclick="switchTab('chat')">💬 Chat</button>
 </div>
 
@@ -309,7 +321,29 @@
 
 </div>
 
-<!-- ─────────── CHAT TAB ─────────── -->
+<!-- Saved prompts tab -->
+<div id="tab-saved-prompts" class="tab-panel">
+  <div class="toolbar">
+    <button class="btn btn-primary" id="managed-add-btn" onclick="addManagedPrompt()" disabled>Add</button>
+    <button class="btn btn-secondary" id="managed-refresh-btn" onclick="loadPromptManager()">Refresh</button>
+  </div>
+  <p class="saved-prompts-status" id="prompt-manager-status" role="status"></p>
+  <div class="prompt-manager">
+    <div class="prompt-manager-list" id="prompt-manager-list" aria-label="Saved prompts"></div>
+    <div class="prompt-manager-editor">
+      <label for="managed-prompt-text">Prompt: <span id="managed-prompt-name">No prompt selected</span></label>
+      <textarea id="managed-prompt-text" rows="4" maxlength="100000" placeholder="Select a saved prompt or add one..." oninput="updatePromptManagerControls()" disabled></textarea>
+      <div class="actions">
+        <button class="btn btn-primary" id="managed-save-btn" onclick="saveManagedPrompt()" disabled>Save</button>
+        <button class="btn btn-secondary" id="managed-rename-btn" onclick="renameManagedPrompt()" disabled>Rename</button>
+        <button class="btn btn-danger" id="managed-delete-btn" onclick="deleteManagedPrompt()" disabled>Delete</button>
+        <button class="btn btn-secondary" id="managed-use-btn" onclick="useManagedPrompt()" disabled>Use in Generate</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chat tab -->
 <div id="tab-chat" class="tab-panel">
 
   <div class="chat-wrap">
@@ -384,7 +418,8 @@ function savedPromptStatus(message, error = false, dialog = false) {
 }
 
 async function savedPromptRequest(options) {
-  const response = await apiFetch('/api/saved-prompts' + (options?.query || ''), options);
+  const { path = '', query = '', ...request } = options || {};
+  const response = await apiFetch('/api/saved-prompts' + path + query, request);
   if (!response.ok) {
     const text = await response.text();
     let message = `Request failed (HTTP ${response.status}).`;
@@ -397,16 +432,27 @@ async function savedPromptRequest(options) {
   return response.status === 204 ? null : response.json();
 }
 
+function normalizeSavedPromptName(name) {
+  const normalized = name.trim().normalize('NFC');
+  if (!normalized || normalized.length > 100 || /[\/\\:*?"<>|\u0000-\u001f\u007f-\u009f]/.test(normalized)) {
+    throw new Error('Name must be 1-100 characters and cannot contain control characters or / \\ : * ? " < > |.');
+  }
+  return normalized;
+}
+
 async function saveCurrentPrompt() {
   const promptText = document.getElementById('prompt').value;
   if (!promptText.trim()) {
     savedPromptStatus('Enter a prompt before saving.', true);
     return;
   }
-  const name = window.prompt('Name for this prompt (unique, up to 100 characters):');
-  if (name === null) return;
-  if (!name.trim()) {
-    savedPromptStatus('Name is required.', true);
+  const input = window.prompt('Name for this prompt (unique, up to 100 characters):');
+  if (input === null) return;
+  let name;
+  try {
+    name = normalizeSavedPromptName(input);
+  } catch (e) {
+    savedPromptStatus(e.message, true);
     return;
   }
   const button = document.getElementById('save-prompt-btn');
@@ -475,7 +521,10 @@ function renderSavedPrompts() {
       document.getElementById('load-prompt-btn').disabled = true;
       savedPromptStatus('Deleting...', false, true);
       try {
-        await savedPromptRequest({ method: 'DELETE', query: '?name=' + encodeURIComponent(saved.name) });
+        await savedPromptRequest({
+          method: 'DELETE', query: '?name=' + encodeURIComponent(saved.name),
+          headers: { 'If-Match': saved.etag }
+        });
         savedPrompts = savedPrompts.filter(item => item.name !== saved.name);
         renderSavedPrompts();
         savedPromptStatus(`Deleted "${saved.name}".`, false, true);
@@ -490,6 +539,241 @@ function renderSavedPrompts() {
     list.append(row);
   }
 }
+
+let managedPrompts = [];
+let managedSelection = null;
+let promptManagerBusy = false;
+let promptManagerLoaded = false;
+
+function promptManagerStatus(message, error = false) {
+  const element = document.getElementById('prompt-manager-status');
+  element.textContent = message;
+  element.classList.toggle('error', error);
+}
+
+function managedPromptDirty() {
+  return !!managedSelection && (!managedSelection.etag
+    || document.getElementById('managed-prompt-text').value !== managedSelection.prompt);
+}
+
+function confirmPromptDiscard() {
+  return !managedPromptDirty() || confirm('Discard unsaved prompt edits?');
+}
+
+function discardPromptEdits() {
+  if (managedSelection && !managedSelection.etag) {
+    selectManagedPrompt(null);
+  } else if (managedSelection) {
+    selectManagedPrompt(managedSelection);
+  }
+}
+
+function updatePromptManagerControls() {
+  const selected = !!managedSelection;
+  const text = document.getElementById('managed-prompt-text');
+  text.disabled = promptManagerBusy || !selected;
+  document.getElementById('managed-add-btn').disabled = promptManagerBusy || !promptManagerLoaded;
+  document.getElementById('managed-refresh-btn').disabled = promptManagerBusy;
+  document.getElementById('managed-save-btn').disabled = promptManagerBusy || !managedPromptDirty() || !text.value.trim();
+  document.getElementById('managed-rename-btn').disabled = promptManagerBusy || !selected;
+  document.getElementById('managed-delete-btn').disabled = promptManagerBusy || !selected;
+  document.getElementById('managed-use-btn').disabled = promptManagerBusy || !selected || !text.value.trim();
+  document.getElementById('prompt-manager-list').querySelectorAll('button').forEach(button => {
+    button.disabled = promptManagerBusy;
+  });
+}
+
+function renderPromptManagerList() {
+  const list = document.getElementById('prompt-manager-list');
+  list.replaceChildren();
+  if (!managedPrompts.length) {
+    const empty = document.createElement('p');
+    empty.className = 'saved-prompts-status';
+    empty.textContent = 'No saved prompts yet.';
+    list.append(empty);
+  }
+  for (const saved of managedPrompts) {
+    const button = document.createElement('button');
+    button.className = 'btn btn-secondary';
+    button.textContent = saved.name;
+    button.setAttribute('aria-pressed', String(managedSelection?.name === saved.name));
+    button.onclick = () => {
+      if (promptManagerBusy || managedSelection === saved || !confirmPromptDiscard()) return;
+      selectManagedPrompt(saved);
+      document.getElementById('managed-prompt-text').focus();
+      promptManagerStatus('');
+    };
+    list.append(button);
+  }
+  updatePromptManagerControls();
+}
+
+function selectManagedPrompt(saved) {
+  managedSelection = saved;
+  const editor = document.getElementById('managed-prompt-text');
+  editor.value = saved?.prompt || '';
+  document.getElementById('managed-prompt-name').textContent = saved?.name || 'No prompt selected';
+  autoResize(editor);
+  renderPromptManagerList();
+}
+
+async function loadPromptManager() {
+  if (promptManagerBusy || !confirmPromptDiscard()) return;
+  promptManagerBusy = true;
+  updatePromptManagerControls();
+  promptManagerStatus('Loading...');
+  try {
+    const prompts = await savedPromptRequest();
+    const name = managedSelection?.etag ? managedSelection.name : null;
+    managedPrompts = prompts;
+    promptManagerLoaded = true;
+    selectManagedPrompt(prompts.find(saved => saved.name === name) || null);
+    promptManagerStatus(prompts.length ? 'Select a prompt to edit, or Add a new one.' : 'Add your first prompt.');
+  } catch (e) {
+    promptManagerStatus('Could not refresh prompts: ' + e.message, true);
+  } finally {
+    promptManagerBusy = false;
+    updatePromptManagerControls();
+  }
+}
+
+function requestManagedPromptName(currentName = '') {
+  const input = window.prompt('Prompt name (unique, up to 100 characters):', currentName);
+  if (input === null) return null;
+  const name = normalizeSavedPromptName(input);
+  if (managedPrompts.some(saved => saved.name !== currentName
+      && saved.name.normalize('NFC').toLowerCase() === name.toLowerCase())) {
+    throw new Error('That name already exists. Choose another name.');
+  }
+  return name;
+}
+
+function addManagedPrompt() {
+  if (promptManagerBusy || !promptManagerLoaded) return;
+  try {
+    const name = requestManagedPromptName();
+    if (name === null || !confirmPromptDiscard()) return;
+    selectManagedPrompt({ name, prompt: '', etag: null });
+    document.getElementById('managed-prompt-text').focus();
+    promptManagerStatus('New draft: enter prompt text, then Save.');
+  } catch (e) {
+    promptManagerStatus(e.message, true);
+  }
+}
+
+function rememberManagedPrompt(saved, oldName = saved.name) {
+  managedPrompts = managedPrompts.filter(item => item.name !== oldName);
+  managedPrompts.push(saved);
+  managedPrompts.sort((a, b) => a.name.localeCompare(b.name));
+  selectManagedPrompt(saved);
+}
+
+async function saveManagedPrompt() {
+  if (promptManagerBusy || !managedSelection) return;
+  const text = document.getElementById('managed-prompt-text').value;
+  if (!text.trim()) {
+    promptManagerStatus('Prompt is required.', true);
+    return;
+  }
+  promptManagerBusy = true;
+  updatePromptManagerControls();
+  promptManagerStatus('Saving...');
+  try {
+    const saved = await savedPromptRequest({
+      method: managedSelection.etag ? 'PUT' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(managedSelection.etag ? { 'If-Match': managedSelection.etag } : {})
+      },
+      body: JSON.stringify({ name: managedSelection.name, prompt: text })
+    });
+    rememberManagedPrompt(saved);
+    promptManagerStatus(`Saved "${saved.name}".`);
+  } catch (e) {
+    promptManagerStatus('Could not save prompt: ' + e.message, true);
+  } finally {
+    promptManagerBusy = false;
+    updatePromptManagerControls();
+  }
+}
+
+async function renameManagedPrompt() {
+  if (promptManagerBusy || !managedSelection) return;
+  try {
+    const name = requestManagedPromptName(managedSelection.name);
+    if (name === null || name === managedSelection.name) return;
+    if (!managedSelection.etag) {
+      managedSelection = { ...managedSelection, name };
+      document.getElementById('managed-prompt-name').textContent = name;
+      promptManagerStatus('Draft renamed. Save to create it.');
+      return;
+    }
+    const text = document.getElementById('managed-prompt-text').value;
+    const oldName = managedSelection.name;
+    promptManagerBusy = true;
+    updatePromptManagerControls();
+    promptManagerStatus('Renaming...');
+    const saved = await savedPromptRequest({
+      path: '/rename', method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'If-Match': managedSelection.etag },
+      body: JSON.stringify({ name: oldName, newName: name })
+    });
+    rememberManagedPrompt(saved, oldName);
+    document.getElementById('managed-prompt-text').value = text;
+    autoResize(document.getElementById('managed-prompt-text'));
+    promptManagerStatus(`Renamed to "${saved.name}".`);
+  } catch (e) {
+    promptManagerStatus('Could not rename prompt: ' + e.message, true);
+  } finally {
+    promptManagerBusy = false;
+    updatePromptManagerControls();
+  }
+}
+
+async function deleteManagedPrompt() {
+  if (promptManagerBusy || !managedSelection) return;
+  const selected = managedSelection;
+  const message = selected.etag
+    ? `Delete saved prompt "${selected.name}" and any unsaved edits? This cannot be undone.`
+    : `Discard draft "${selected.name}"?`;
+  if (!confirm(message)) return;
+  promptManagerBusy = true;
+  updatePromptManagerControls();
+  promptManagerStatus('Deleting...');
+  try {
+    if (selected.etag) {
+      await savedPromptRequest({
+        method: 'DELETE', query: '?name=' + encodeURIComponent(selected.name),
+        headers: { 'If-Match': selected.etag }
+      });
+      managedPrompts = managedPrompts.filter(item => item.name !== selected.name);
+    }
+    selectManagedPrompt(null);
+    promptManagerStatus(selected.etag ? `Deleted "${selected.name}".` : 'Draft discarded.');
+  } catch (e) {
+    promptManagerStatus('Could not delete prompt: ' + e.message, true);
+  } finally {
+    promptManagerBusy = false;
+    updatePromptManagerControls();
+  }
+}
+
+function useManagedPrompt() {
+  if (promptManagerBusy || !managedSelection) return;
+  const text = document.getElementById('managed-prompt-text').value;
+  if (!text.trim() || !switchTab('generate')) return;
+  const prompt = document.getElementById('prompt');
+  prompt.value = text;
+  autoResize(prompt);
+  prompt.focus();
+}
+
+window.addEventListener('beforeunload', event => {
+  if (managedPromptDirty() || promptManagerBusy) {
+    event.preventDefault();
+    event.returnValue = '';
+  }
+});
 
 // ─── File selection ───────────────────────────────────────────────────────────
 const selectedFiles = [];
@@ -1263,11 +1547,24 @@ async function sendChat() {
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
+  if (tab !== 'saved-prompts' && document.getElementById('tab-saved-prompts').classList.contains('active')) {
+    if (promptManagerBusy) {
+      promptManagerStatus('Wait for the current operation to finish.', true);
+      return false;
+    }
+    if (!confirmPromptDiscard()) return false;
+    discardPromptEdits();
+  }
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelector(`.tab-btn[onclick*="${tab}"]`).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'browse') loadImages();
+  if (tab === 'saved-prompts') {
+    autoResize(document.getElementById('managed-prompt-text'));
+    loadPromptManager();
+  }
+  return true;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

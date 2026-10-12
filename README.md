@@ -7,7 +7,7 @@ A web application for generating images using Azure OpenAI, with a browser-based
 - **Generate** images from a text prompt, with optional reference image uploads and configurable output size
 - **Chat** with a multimodal assistant for critique, improvement actions, and better prompt suggestions (optional image per turn)
 - **Browse** previously generated images, view their prompts, download, or delete them
-- **Saved prompts** on Generate: save prompt text under a unique name, load it, or delete it with confirmation
+- **Saved prompts** tab: add, edit, rename, delete, or use a prompt in Generate; quick Save/Load remains on Generate
 - Asynchronous generation — the UI polls for completion so long-running requests don't time out in the browser
 - Images are stored in Azure Blob Storage; prompt metadata is stored in Azure Table Storage
 
@@ -47,9 +47,20 @@ it must differ from the image container. The app creates it on first save or loa
 The managed identity needs Storage Blob Data Contributor at account scope (or
 provision the container and grant that role at container scope).
 
-Names are trimmed, case-insensitive, and limited to 100 characters. Duplicate names
-never overwrite existing prompts. Prompt text is limited to 100,000 characters.
-Loading changes only the prompt, not generation settings or reference images.
+Names are case-insensitively unique and limited to 100 characters. Only leading
+and trailing whitespace is trimmed; internal spaces are preserved. New names
+reject control characters and `/ \ : * ? " < > |`. Existing names remain accessible.
+Prompt text is limited to 100,000 characters. Add starts a draft; Save persists it.
+Rename preserves unsaved editor text without saving it. Leaving the tab or changing
+selection warns before discarding edits. Use in Generate changes only prompt text.
+
+The authenticated `/api/saved-prompts` API supports GET (list), POST (create),
+PUT (edit), DELETE (`?name=...`), and POST `/rename` (`name`, `newName`).
+Responses include each prompt's Blob Storage `etag`; editing, renaming, and
+deleting require that value in `If-Match`. Create, edit, and rename also return an
+HTTP `ETag` header. Stale ETags return 412; duplicate names return 409.
+Rename uses conditional create/delete, not an atomic blob move. An uncertain
+storage failure preserves the destination and asks you to refresh before retrying.
 
 ## License
 
