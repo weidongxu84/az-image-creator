@@ -28,7 +28,8 @@ class Element {
   setAttribute() {}
   showModal() { this.open = true; }
   close() { this.open = false; }
-  focus() { this.focused = true; }
+  focus(options) { this.focused = true; this.focusOptions = options; }
+  setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; }
   querySelectorAll() { return this.children.filter(child => child.onclick); }
 }
 
@@ -53,7 +54,12 @@ function setup() {
         return this.getElementById('tabbutton-' + tab);
       }
     },
-    window: { prompt: () => 'Name', addEventListener: (event, listener) => listeners[event] = listener },
+    window: {
+      prompt: () => 'Name',
+      addEventListener: (event, listener) => listeners[event] = listener,
+      scrollX: 0, scrollY: 0,
+      scrollTo(x, y) { this.scrollX = x; this.scrollY = y; }
+    },
     confirm: () => true,
     autoResize: element => element.resized = true,
     apiFetch: async (url, options) => {
@@ -214,6 +220,21 @@ test('management selection fills editor without changing Generate and guards dir
   element('prompt-manager-list').children[1].onclick();
   assert.equal(element('managed-prompt-text').value, 'second text');
   assert.equal(element('prompt').value, 'Generate stays here');
+});
+
+test('selecting a long prompt focuses its start without scrolling the page', async () => {
+  const { context, element } = await managerSetup([
+    { name: 'Long prompt', prompt: 'A long prompt line.\n'.repeat(200), etag: '"v1"' }
+  ]);
+  context.window.scrollY = 50;
+  context.autoResize = editor => { editor.resized = true; context.window.scrollY = 0; };
+  element('prompt-manager-list').children[0].onclick();
+  const editor = element('managed-prompt-text');
+  assert.equal(editor.focused, true);
+  assert.equal(editor.focusOptions.preventScroll, true);
+  assert.equal(editor.selectionStart, 0);
+  assert.equal(editor.selectionEnd, 0);
+  assert.equal(context.window.scrollY, 50);
 });
 
 test('Add creates a named local draft and Save creates it without overwriting', async () => {

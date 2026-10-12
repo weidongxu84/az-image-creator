@@ -599,8 +599,14 @@ function renderPromptManagerList() {
     button.setAttribute('aria-pressed', String(managedSelection?.name === saved.name));
     button.onclick = () => {
       if (promptManagerBusy || managedSelection === saved || !confirmPromptDiscard()) return;
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
       selectManagedPrompt(saved);
-      document.getElementById('managed-prompt-text').focus();
+      const editor = document.getElementById('managed-prompt-text');
+      editor.setSelectionRange(0, 0);
+      editor.focus({ preventScroll: true });
+      // Auto-resizing briefly collapses the page, which can reset its scroll position.
+      window.scrollTo(scrollX, scrollY);
       promptManagerStatus('');
     };
     list.append(button);

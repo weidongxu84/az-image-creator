@@ -55,9 +55,13 @@ class SavedPromptServiceTests {
     }
 
     private void stubRead(BlobClient client, SavedPrompt saved) {
+        stubRead(client, saved, VERSION);
+    }
+
+    private void stubRead(BlobClient client, SavedPrompt saved, String etag) {
         BlobDownloadContentResponse response = mock(BlobDownloadContentResponse.class);
         when(response.getValue()).thenReturn(BinaryData.fromObject(saved));
-        when(response.getHeaders()).thenReturn(new HttpHeaders().set("ETag", VERSION));
+        when(response.getHeaders()).thenReturn(new HttpHeaders().set("ETag", etag));
         when(client.downloadContentWithResponse(isNull(), any(), isNull(), isNull())).thenReturn(response);
     }
 
@@ -158,7 +162,7 @@ class SavedPromptServiceTests {
                 new BlobItem().setName("other.txt")).stream());
         BlobClient apple = mock(BlobClient.class);
         when(container.getBlobClient("a.json")).thenReturn(apple);
-        stubRead(blob, new SavedPrompt("Zoo / legacy", "animals"));
+        stubRead(blob, new SavedPrompt("Zoo / legacy", "animals"), "v1");
         stubRead(apple, new SavedPrompt("apple", "fruit"));
         assertThat(service.list()).containsExactly(
                 new SavedPromptDetails("apple", "fruit", VERSION),
@@ -204,7 +208,7 @@ class SavedPromptServiceTests {
         BlobClient destination = mock(BlobClient.class);
         when(container.getBlobClient(anyString())).thenReturn(blob, destination);
         stubRead(blob, new SavedPrompt("old / name", "  exact text  "));
-        stubUpload(destination, NEXT_VERSION);
+        stubUpload(destination, "v2");
         return destination;
     }
 
@@ -297,5 +301,16 @@ class SavedPromptServiceTests {
             assertThatThrownBy(() -> service.save(new SavedPrompt("name", "text")))
                     .isInstanceOf(SavedPromptNameConflictException.class).hasCause(conflict);
         }
+    }
+
+    @Test
+    void quotesUploadEtagsSoClientsCanReuseThemInIfMatch() {
+        stubUpload(blob, "0x1234");
+        SavedPromptDetails saved = service.save(new SavedPrompt("name", "original"));
+        assertThat(saved.etag()).isEqualTo("\"0x1234\"");
+        stubRead(blob, new SavedPrompt("name", "original"), "0x1234");
+        stubUpload(blob, "0x5678");
+        assertThat(service.update(new SavedPrompt("name", "edited"), saved.etag()).etag())
+                .isEqualTo("\"0x5678\"");
     }
 }

@@ -113,7 +113,7 @@ public class SavedPromptService {
     private SavedPromptDetails read(BlobClient blob, BlobRequestConditions conditions) {
         BlobDownloadContentResponse response = blob.downloadContentWithResponse(null, conditions, null, null);
         SavedPrompt saved = response.getValue().toObject(SavedPrompt.class);
-        return new SavedPromptDetails(saved.name(), saved.prompt(), response.getHeaders().getValue("ETag"));
+        return new SavedPromptDetails(saved.name(), saved.prompt(), quotedEtag(response.getHeaders().getValue("ETag")));
     }
 
     private SavedPromptDetails write(BlobClient blob, SavedPrompt saved, BlobRequestConditions conditions) {
@@ -121,7 +121,14 @@ public class SavedPromptService {
                 .setHeaders(new BlobHttpHeaders().setContentType("application/json"))
                 .setRequestConditions(conditions);
         String etag = blob.uploadWithResponse(options, null, null).getValue().getETag();
-        return new SavedPromptDetails(saved.name(), saved.prompt(), etag);
+        return new SavedPromptDetails(saved.name(), saved.prompt(), quotedEtag(etag));
+    }
+
+    private static String quotedEtag(String etag) {
+        if (etag == null || etag.isBlank()) {
+            throw new IllegalStateException("Blob Storage response did not include an ETag.");
+        }
+        return etag.startsWith("\"") ? etag : "\"" + etag + "\"";
     }
 
     private SavedPromptDetails create(BlobClient blob, SavedPrompt saved) {
