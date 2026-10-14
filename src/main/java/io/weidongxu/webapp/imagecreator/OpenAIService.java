@@ -37,6 +37,7 @@ public class OpenAIService {
     private static final String GPT_IMAGE_2_5_FLARE = "gpt-image-2.5-flare";
     private static final String GPT_IMAGE_2_5_SUNBURST = "gpt-image-2.5-sunburst";
     private static final String IMAGE_API_VERSION = "2025-04-01-preview";
+    private static final int IMAGE_MAX_RETRIES = 5;
     private static final long OUTPUT_COMPRESSION = 95L;
     private static final String CHAT_SYSTEM_PROMPT_JSON = """
             You are an expert creative image consultant and prompt engineer.
@@ -161,6 +162,7 @@ public class OpenAIService {
             this.imageClient = OpenAIOkHttpClient.builder()
                     .baseUrl(normalizeImageBaseUrl(config.getAlternateImageEndpoint()))
                     .apiKey(config.getAlternateImageApiKey())
+                    .maxRetries(IMAGE_MAX_RETRIES)
                     .build();
             this.imageFallbackClient = null;
             log.info("Using alternate API-key endpoint for image generation and editing.");
@@ -169,6 +171,7 @@ public class OpenAIService {
             this.imageClient = OpenAIOkHttpClient.builder()
                     .baseUrl(endpoint)
                     .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
+                    .maxRetries(IMAGE_MAX_RETRIES)
                     .apiKey("none")
                     .credential(BearerTokenCredential.create(
                             () -> config.getCredential().getToken(ctx).block().getToken()))
@@ -179,6 +182,7 @@ public class OpenAIService {
                             .baseUrl(endpoint)
                             .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
                             .apiKey(apiKey)
+                            .maxRetries(IMAGE_MAX_RETRIES)
                             .build();
         }
 

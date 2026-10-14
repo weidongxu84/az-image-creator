@@ -1,14 +1,53 @@
 package io.weidongxu.webapp.imagecreator;
 
+import com.openai.client.OpenAIClient;
+import com.openai.core.ClientOptions;
 import com.openai.models.images.ImageEditParams;
 import com.openai.models.images.ImageGenerateParams;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class OpenAIServiceTests {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void increasesRetriesOnlyForImageClients(boolean alternateEndpoint) {
+        AppConfig config = mock(AppConfig.class);
+        when(config.isUseAlternateImageEndpoint()).thenReturn(alternateEndpoint);
+        when(config.getOpenAIEndpoint()).thenReturn("https://primary.openai.azure.com");
+        when(config.getOpenAIApiKey()).thenReturn("test-primary-key");
+        when(config.getAlternateImageEndpoint()).thenReturn("https://secondary.openai.azure.com");
+        when(config.getAlternateImageApiKey()).thenReturn("test-secondary-key");
+
+        OpenAIService service = new OpenAIService(config, mock(ChatResponseMapper.class));
+        List<OpenAIClient> clients = new ArrayList<>();
+        try {
+            for (String field : List.of("imageClient", "imageFallbackClient",
+                    "managedIdentityChatClient", "apiKeyFallbackChatClient")) {
+                OpenAIClient client = (OpenAIClient) ReflectionTestUtils.getField(service, field);
+                if (alternateEndpoint && "imageFallbackClient".equals(field)) {
+                    assertThat(client).isNull();
+                    continue;
+                }
+                assertThat(client).isNotNull();
+                clients.add(client);
+                ClientOptions options = (ClientOptions) ReflectionTestUtils.getField(client, "clientOptions");
+                assertThat(options.maxRetries()).as(field)
+                        .isEqualTo(field.startsWith("image") ? 5 : 2);
+            }
+        } finally {
+            clients.forEach(OpenAIClient::close);
+        }
+    }
 
     @Test
     void usesModelSpecificImageQuality() {

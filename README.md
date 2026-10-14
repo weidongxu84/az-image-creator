@@ -39,7 +39,11 @@ OpenAI failures log the SDK-retained error body and response headers, including
 `Retry-After`, `Retry-After-Ms`, and request IDs. Authentication and cookie headers
 are redacted. Error bodies may contain service-returned request details.
 Logs cover final failures and authentication errors before API-key fallback,
-not intermediate SDK retries or successful image responses. Retry behavior is unchanged.
+not intermediate SDK retries or successful image responses.
+
+OpenAI image generation and editing allow 5 retries (6 attempts per SDK request),
+including alternate and API-key fallback image clients. Chat and validation retain
+the SDK default of 2 retries. Server-provided retry delays are honored.
 
 ## Storage Authentication
 
