@@ -513,6 +513,7 @@ public class OpenAIService {
             if (!canFallback) {
                 throw e;
             }
+            OpenAIErrorLogging.logResponse(log, "Managed identity authentication", e);
             log.warn("Managed identity auth failed (HTTP {}). Retrying with API key fallback.", e.statusCode());
             return request.apply(fallbackClient);
         }

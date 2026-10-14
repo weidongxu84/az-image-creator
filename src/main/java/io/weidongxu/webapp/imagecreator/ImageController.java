@@ -172,6 +172,7 @@ public class ImageController {
         String type = safeOptional(e::type);
         log.warn("OpenAI API error HTTP {} code={} type={} message={}",
                 status, code, type, detail);
+        OpenAIErrorLogging.logResponse(log, "OpenAI API", e);
 
         String userMsg;
         if (status == 429) {

@@ -91,6 +91,7 @@ public class ImageGenerationService {
             String userMessage = classifyOpenAIError(status, code, detail);
             log.warn("Job {}: OpenAI error HTTP {} code={} type={} message={}",
                     jobId, status, code, type, detail);
+            OpenAIErrorLogging.logResponse(log, "Job " + jobId, e);
             jobStore.setFailed(jobId, userMessage);
         } catch (Exception e) {
             log.error("Job {}: unexpected error", jobId, e);

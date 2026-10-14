@@ -33,6 +33,14 @@ through `AZURE_OPENAI_ALT_IMAGE_ENDPOINT` using `AZURE_OPENAI_ALT_IMAGE_API_KEY`
 `AZURE_OPENAI_ALT_SUNBURST_DEPLOYMENT` defaults to `gpt-image-2.5-sunburst`.
 Chat remains on the primary endpoint.
 
+## Model Error Logs
+
+OpenAI failures log the SDK-retained error body and response headers, including
+`Retry-After`, `Retry-After-Ms`, and request IDs. Authentication and cookie headers
+are redacted. Error bodies may contain service-returned request details.
+Logs cover final failures and authentication errors before API-key fallback,
+not intermediate SDK retries or successful image responses. Retry behavior is unchanged.
+
 ## Storage Authentication
 
 Storage uses managed identity with `STORAGE_ACCOUNT_NAME` by default. Set
