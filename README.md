@@ -7,7 +7,7 @@ A web application for generating images using Azure OpenAI, with a browser-based
 - **Generate** images from a text prompt, with optional reference image uploads and configurable output size
 - **Chat** with a multimodal assistant for critique, improvement actions, and better prompt suggestions (optional image per turn)
 - **Browse** previously generated images, view their prompts, download, or delete them
-- **Saved prompts** tab: add, edit, rename, delete, or use a prompt in Generate; quick Save/Load remains on Generate
+- **Saved prompts** tab: add, edit, rename, delete, or use a prompt in Generate
 - Asynchronous generation — the UI polls for completion so long-running requests don't time out in the browser
 - Images are stored in Azure Blob Storage; prompt metadata is stored in Azure Table Storage
 
