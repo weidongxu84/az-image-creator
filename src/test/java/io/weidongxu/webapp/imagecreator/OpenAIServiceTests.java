@@ -9,6 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +21,7 @@ class OpenAIServiceTests {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void increasesRetriesOnlyForImageClients(boolean alternateEndpoint) {
+    void increasesRetriesAndTimeoutOnlyForImageClients(boolean alternateEndpoint) {
         AppConfig config = mock(AppConfig.class);
         when(config.isUseAlternateImageEndpoint()).thenReturn(alternateEndpoint);
         when(config.getOpenAIEndpoint()).thenReturn("https://primary.openai.azure.com");
@@ -43,6 +44,8 @@ class OpenAIServiceTests {
                 ClientOptions options = (ClientOptions) ReflectionTestUtils.getField(client, "clientOptions");
                 assertThat(options.maxRetries()).as(field)
                         .isEqualTo(field.startsWith("image") ? 5 : 2);
+                assertThat(options.timeout().request()).as(field)
+                        .isEqualTo(Duration.ofMinutes(field.startsWith("image") ? 20 : 10));
             }
         } finally {
             clients.forEach(OpenAIClient::close);

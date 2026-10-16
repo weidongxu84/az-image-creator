@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -38,6 +39,7 @@ public class OpenAIService {
     private static final String GPT_IMAGE_2_5_SUNBURST = "gpt-image-2.5-sunburst";
     private static final String IMAGE_API_VERSION = "2025-04-01-preview";
     private static final int IMAGE_MAX_RETRIES = 5;
+    private static final Duration IMAGE_REQUEST_TIMEOUT = Duration.ofMinutes(20);
     private static final long OUTPUT_COMPRESSION = 95L;
     private static final String CHAT_SYSTEM_PROMPT_JSON = """
             You are an expert creative image consultant and prompt engineer.
@@ -163,6 +165,7 @@ public class OpenAIService {
                     .baseUrl(normalizeImageBaseUrl(config.getAlternateImageEndpoint()))
                     .apiKey(config.getAlternateImageApiKey())
                     .maxRetries(IMAGE_MAX_RETRIES)
+                    .timeout(IMAGE_REQUEST_TIMEOUT)
                     .build();
             this.imageFallbackClient = null;
             log.info("Using alternate API-key endpoint for image generation and editing.");
@@ -172,6 +175,7 @@ public class OpenAIService {
                     .baseUrl(endpoint)
                     .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
                     .maxRetries(IMAGE_MAX_RETRIES)
+                    .timeout(IMAGE_REQUEST_TIMEOUT)
                     .apiKey("none")
                     .credential(BearerTokenCredential.create(
                             () -> config.getCredential().getToken(ctx).block().getToken()))
@@ -183,6 +187,7 @@ public class OpenAIService {
                             .azureServiceVersion(AzureOpenAIServiceVersion.fromString(IMAGE_API_VERSION))
                             .apiKey(apiKey)
                             .maxRetries(IMAGE_MAX_RETRIES)
+                            .timeout(IMAGE_REQUEST_TIMEOUT)
                             .build();
         }
 
