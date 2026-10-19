@@ -24,7 +24,6 @@ public class FluxService {
 
     private static final Logger log = LoggerFactory.getLogger(FluxService.class);
     private static final String API_VERSION = "preview";
-    private static final int SAFETY_TOLERANCE = 4;
 
     private final AppConfig config;
     private final ObjectMapper objectMapper;
@@ -65,7 +64,6 @@ public class FluxService {
         body.put("height", dimensions[1]);
         body.put("num_images", n);
         body.put("model", config.getFluxDeployment());
-        body.put("safety_tolerance", SAFETY_TOLERANCE);
         body.put("output_format", mapOutputFormat(outputFormat));
 
         log.info("FLUX generate: size={}x{}, n={}, format={}", dimensions[0], dimensions[1], n, outputFormat);
@@ -83,7 +81,6 @@ public class FluxService {
         body.put("height", dimensions[1]);
         body.put("num_images", n);
         body.put("model", config.getFluxDeployment());
-        body.put("safety_tolerance", SAFETY_TOLERANCE);
         body.put("output_format", mapOutputFormat(outputFormat));
 
         // Multi-reference: input_image, input_image_2, input_image_3, ...

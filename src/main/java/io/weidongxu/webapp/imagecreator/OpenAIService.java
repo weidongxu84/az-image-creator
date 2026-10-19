@@ -306,7 +306,6 @@ public class OpenAIService {
                 .n((long) n)
                 .size(ImageGenerateParams.Size.of(size))
                 .quality(generateQuality(model))
-                .moderation(ImageGenerateParams.Moderation.LOW)
                 .outputFormat(ImageGenerateParams.OutputFormat.of(outputFormat));
 
         if (isCompressedFormat(outputFormat)) {

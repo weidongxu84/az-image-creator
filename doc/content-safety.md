@@ -5,7 +5,7 @@ Both must allow a request for it to succeed.
 
 ## Layer 1 — Model-side moderation (in code)
 
-Set per request in application code.
+Requests omit moderation overrides and use provider defaults.
 
 | Model | Parameter | Location | Range / options |
 |---|---|---|---|
