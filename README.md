@@ -74,6 +74,18 @@ HTTP `ETag` header. Stale ETags return 412; duplicate names return 409.
 Rename uses conditional create/delete, not an atomic blob move. An uncertain
 storage failure preserves the destination and asks you to refresh before retrying.
 
+## Corporate Web App
+
+```powershell
+.\scripts\corp-webapp.ps1 start
+.\scripts\corp-webapp.ps1 stop
+.\scripts\corp-webapp.ps1 status
+```
+
+`start` restores selected-network access for `CorpNetPublic` and `CorpNetSAW`.
+`stop` disables public network access and refuses to interrupt active jobs.
+Use `stop -Force` only when interruption is intentional.
+
 ## License
 
 [MIT](LICENSE)
